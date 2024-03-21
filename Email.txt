@@ -1,0 +1,27 @@
+Dear [Upstream System Contact Name],
+
+My name is [Your Name] and I am the [Your Title] at [Your Company]. We are currently developing a new application called [Your App Name] that will provide valuable functionalities for our users.
+
+[Your App Name] will require access to specific data points from your system in order to [Explain briefly how the data will be used and benefit users]. We are reaching out to explore the possibility of establishing a data connection between [Your App Name] and your system.
+
+Specifically, we are interested in learning more about the following:
+
+Data Availability: We would appreciate a list of the data points that are available for access through your system that would be relevant to [Your App Name].
+Connection Methods: Please outline the available methods for connecting our system to yours (e.g., API, data feeds).
+Data Delivery Frequency: How often can we expect updates to the data we receive?
+Security Measures: We prioritize data security. Could you please share your security protocols for data transmission and access?
+Cost Structure: If applicable, we would like to understand your cost structure for establishing and maintaining a data connection.
+We are open to discussing various data access models that best suit both our needs. We believe that a strong data connection between our systems will be mutually beneficial.
+
+Please let me know if you require any further information from us. We are available to schedule a call at your earliest convenience to discuss this further.
+
+Thank you for your time and consideration.
+
+Sincerely,
+
+[Your Name]
+[Your Title]
+[Your Company]
+[Your Contact Information]
+
+P.S.  We are also reaching out to other upstream systems to explore data connection options.
