@@ -117,3 +117,42 @@ while IFS= read -r role; do
     
     sleep 1
 done < "$ROLES_FILE"
+
+
+===================
+=============
+
+#!/bin/bash
+
+ROLES_FILE="roles.txt"
+BASE_URL="https://api.example.com/users?role="
+OUTPUT_FILE="users_by_role.csv"
+
+# Create CSV header
+echo '"Role","Name","Email","Country"' > $OUTPUT_FILE
+
+while IFS= read -r role; do
+    echo "Processing role: $role"
+    
+    encoded_role=$(echo $role | sed 's/ /%20/g')
+    response=$(curl -s "${BASE_URL}${encoded_role}")
+    
+    # Debug: Print raw response structure
+    echo "Response structure for $role:"
+    echo "$response" | jq 'type'
+    
+    # Process the response
+    echo "$response" | \
+    jq -r '
+        # Ensure we have an array to work with
+        if type == "array" then
+            .[] | [input_filename, .name, .email, .country]
+        elif type == "object" then
+            [.] | .[] | [input_filename, .name, .email, .country]
+        else
+            empty
+        end
+    ' --arg filename "$role" >> $OUTPUT_FILE
+    
+    sleep 1
+done < "$ROLES_FILE"
