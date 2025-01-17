@@ -1,0 +1,23 @@
+# Print only names and emails of all users
+curl -s https://api.example.com/users | jq '.[] | {name, email}'
+
+# Print specific fields (name, id, country)
+curl -s https://api.example.com/users | jq '.[] | {name: .name, id: .id, country: .country}'
+
+# Print as a compact line instead of JSON object
+curl -s https://api.example.com/users | jq -r '.[] | "\(.name), \(.email)"'
+
+# Filter users from a specific country and show their names
+curl -s https://api.example.com/users | jq '.[] | select(.country=="USA") | .name'
+
+# Filter users with specific condition and show multiple fields
+curl -s https://api.example.com/users | jq '.[] | select(.country=="USA") | {name: .name, email: .email}'
+
+# Get first 3 users' details
+curl -s https://api.example.com/users | jq '[.[] | {name, email}][0:3]'
+
+# Count total users
+curl -s https://api.example.com/users | jq 'length'
+
+# Find users with email containing specific domain
+curl -s https://api.example.com/users | jq '.[] | select(.email | contains("@gmail.com")) | {name, email}'
