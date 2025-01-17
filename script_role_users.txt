@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Input file containing roles (one role per line)
+ROLES_FILE="roles.txt"
+# Base URL 
+BASE_URL="https://api.example.com/users?role="
+# Output CSV file
+OUTPUT_FILE="users_by_role.csv"
+
+# Create CSV header
+echo "Role,Name,Email,Country" > $OUTPUT_FILE
+
+# Read each role from the file
+while IFS= read -r role; do
+    # URL encode the role (replace spaces with %20)
+    encoded_role=$(echo $role | sed 's/ /%20/g')
+    
+    # Fetch users for this role and process with jq
+    curl -s "${BASE_URL}${encoded_role}" | \
+    jq -r '.[] | [env.role, .name, .email, .country] | @csv' \
+    --arg role "$role" >> $OUTPUT_FILE
+    
+    # Optional: Add sleep to avoid hitting rate limits
+    sleep 1
+done < "$ROLES_FILE"
+
+--------------------
+
+# If you need to add authentication
+curl -s -H "Authorization: Bearer YOUR_TOKEN" "${BASE_URL}${encoded_role}"
+
+# If you need different fields in the CSV
+jq -r '.[] | [env.role, .name, .email, .id, .department] | @csv'
+
+# To handle errors and add logging
+while IFS= read -r role; do
+    echo "Processing role: $role"
+    if ! curl -s "${BASE_URL}${encoded_role}" | \
+        jq -r '.[] | [env.role, .name, .email, .country] | @csv' \
+        --arg role "$role" >> $OUTPUT_FILE; then
+        echo "Error processing role: $role" >&2
+    fi
+    sleep 1
+done < "$ROLES_FILE"
