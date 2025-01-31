@@ -1,0 +1,21 @@
+# Here's the SQL query to get all tables from all schemas in Oracle 12c:
+
+SELECT 
+    owner as schema_name,
+    table_name,
+    tablespace_name,
+    num_rows,
+    avg_row_len,
+    last_analyzed,
+    partitioned
+FROM all_tables
+WHERE owner NOT IN (
+    'SYS', 'SYSTEM', 'OUTLN', 'DBSNMP',
+    'APPQOSSYS', 'DBSFWUSER', 'GGSYS',
+    'ANONYMOUS', 'CTXSYS', 'DVSYS',
+    'MDSYS', 'OJVMSYS', 'XDB'
+)
+ORDER BY owner, table_name;
+
+-----------------------------------
+
