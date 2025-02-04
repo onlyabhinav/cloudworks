@@ -1,0 +1,23 @@
+SELECT 
+    d.tablespace_name "Tablespace",
+    d.file_name "Datafile Path",
+    d.bytes/1024/1024 "Size (MB)",
+    NVL(f.free/1024/1024, 0) "Free (MB)",
+    d.bytes/1024/1024 - NVL(f.free/1024/1024, 0) "Used (MB)",
+    ROUND((d.bytes/1024/1024 - NVL(f.free/1024/1024, 0))/(d.bytes/1024/1024) * 100, 2) "Used %",
+    d.autoextensible "Auto Extendable",
+    d.maxbytes/1024/1024 "Max Size (MB)"
+FROM 
+    dba_data_files d,
+    (SELECT 
+        file_id,
+        SUM(bytes) free
+     FROM 
+        dba_free_space
+     GROUP BY 
+        file_id) f
+WHERE 
+    d.file_id = f.file_id (+)
+ORDER BY 
+    d.tablespace_name,
+    d.file_name;
