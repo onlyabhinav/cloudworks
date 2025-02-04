@@ -1,0 +1,58 @@
+from ldap3 import Server, Connection, SUBTREE, ALL_ATTRIBUTES
+
+# pip install ldap3
+
+def get_users_by_role(ldap_server, bind_dn, bind_password, base_dn, role_name):
+    # Connect to LDAP server
+    server = Server(ldap_server)
+    
+    try:
+        # Establish connection
+        conn = Connection(server, bind_dn, bind_password, auto_bind=True)
+        
+        # Search filter for users with specific role
+        # This might need to be adjusted based on your LDAP schema
+        search_filter = f'(&(objectClass=user)(memberOf=CN={role_name},OU=Roles,{base_dn}))'
+        
+        # Perform the search
+        conn.search(
+            search_base=base_dn,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=['cn', 'mail', 'sAMAccountName']  # Add or modify attributes as needed
+        )
+        
+        users = []
+        for entry in conn.entries:
+            user = {
+                'name': entry.cn.value,
+                'email': entry.mail.value if hasattr(entry, 'mail') else None,
+                'username': entry.sAMAccountName.value if hasattr(entry, 'sAMAccountName') else None
+            }
+            users.append(user)
+            
+        return users
+        
+    except Exception as e:
+        print(f"Error connecting to LDAP: {str(e)}")
+        return None
+    finally:
+        if 'conn' in locals():
+            conn.unbind()
+
+# Example usage
+if __name__ == "__main__":
+    # Replace these with your LDAP server details
+    ldap_server = "ldap://your.ldap.server"
+    bind_dn = "CN=ServiceAccount,DC=company,DC=com"
+    bind_password = "your_password"
+    base_dn = "DC=company,DC=com"
+    role_name = "Administrators"
+    
+    users = get_users_by_role(ldap_server, bind_dn, bind_password, base_dn, role_name)
+    
+    if users:
+        print(f"Users with role '{role_name}':")
+        for user in users:
+            print(f"Name: {user['name']}, Email: {user['email']}, Username: {user['username']}")
+
