@@ -1,0 +1,57 @@
+from ldap3 import Server, Connection, ALL, SUBTREE, SAFE_SYNC, Tls
+import ssl
+import certifi
+
+def validate_ldap_credentials_secure(ldap_server, port, username, password, base_dn, search_filter=None, ca_certs_file=None):
+    """
+    Validate LDAP credentials using secure SSL/TLS connection.
+    
+    Args:
+        ldap_server (str): LDAP server hostname
+        port (int): LDAP server port (usually 636 for LDAPS)
+        username (str): Username to validate
+        password (str): Password to validate
+        base_dn (str): Base DN for search
+        search_filter (str): Optional search filter to find user DN
+        ca_certs_file (str): Path to CA certificates file (optional)
+    """
+    try:
+        # Configure TLS
+        tls = Tls(
+            validate=ssl.CERT_REQUIRED,  # Require certificate validation
+            ca_certs_file=ca_certs_file or certifi.where(),  # Use provided CA certs or system's default
+            version=ssl.PROTOCOL_TLS_CLIENT,  # Use the highest TLS version supported
+            verify_flags=ssl.VERIFY_DEFAULT
+        )
+
+        # Create server with TLS configuration
+        server = Server(
+            ldap_server,
+            port=port,
+            use_ssl=True,  # Enable SSL/TLS
+            tls=tls,
+            get_info=ALL
+        )
+
+        # Rest of the authentication logic remains the same
+        # ... (previous authentication code here)
+
+# Example usage with secure connection
+if __name__ == "__main__":
+    # Configuration for LDAPS
+    ldap_server = "ldaps.example.com"
+    port = 636  # Standard LDAPS port
+    base_dn = "DC=example,DC=com"
+    
+    # Optional: Path to your custom CA certificates
+    ca_certs_file = "/path/to/custom/ca-certificates.crt"
+    
+    # Example with secure connection
+    success, message = validate_ldap_credentials_secure(
+        ldap_server=ldap_server,
+        port=port,
+        username="user@example.com",
+        password="user_password",
+        base_dn=base_dn,
+        ca_certs_file=ca_certs_file  # Optional
+    )
