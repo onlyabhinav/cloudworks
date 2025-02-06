@@ -1,0 +1,54 @@
+Create a Python utility to get all branches in a GitHub Organization or Account
+
+## Core Functionality
+1. Connect to GitHub repositories using API
+2. Identify unmerged branches older than a configurable threshold
+3. Send notifications to team members
+4. Support environment variable configuration
+5. Generate detailed logs
+
+## Technical Requirements
+1. Make the code modular and maintainable
+2. Include proper error handling
+3. Support configuration through both YAML and environment variables
+4. Implement secure credential management
+5. Use type hints and documentation
+
+## Specific Features
+1. Email notifications:
+   - HTML formatted reports
+   - Support for multiple recipients
+   - Customizable templates
+   - Organization branding
+
+2. GitHub integration:
+   - Check all repos in an account or organization
+   - Last commit information
+
+3. Configuration management:
+   - YAML-based configuration
+   - Environment variable support
+   - Secure credential handling
+   - Default value fallbacks
+
+4. Logging:
+   - Time-stamped log files
+   - Different log levels
+   - Both console and file output
+   - Error tracing
+
+## Development Guidelines
+1. Use modern Python practices
+2. Implement proper class structure
+3. Include comprehensive error handling
+4. Add detailed documentation
+5. Make the code extensible
+
+## Output Requirements
+1. Complete Python source code
+2. Configuration file templates
+3. Environment variable documentation
+4. Usage instructions
+5. Sample implementation
+
+Please include code comments and documentation for maintainability.
