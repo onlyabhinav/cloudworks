@@ -1,3 +1,20 @@
+config file...
+{
+    "server": {
+        "host": "your-server-ip",
+        "port": 22,
+        "username": "your-username",
+        "password": "your-password"
+    },
+    "application": {
+        "local_jar_path": "C:/path/to/your/application.jar",
+        "remote_jar_path": "/opt/myapp/application.jar",
+        "start_command": "java -Xmx512m -Dspring.profiles.active=prod"
+    }
+}
+
+----------------
+
 
 import paramiko
 import os
