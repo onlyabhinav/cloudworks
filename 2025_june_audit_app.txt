@@ -1,0 +1,28 @@
+1. Use Existing Schema and Tables
+Pros:
+
+Reduced Overhead: No need to manage a new schema.
+Potentially Reuse Code: Existing data pipelines and services could be leveraged.
+Single Source of Truth: All related data in one place.
+Cons:
+
+Schema Changes Required: Adding new columns for audit data.
+Risk to Existing Functionality: Unfiltered data ingestion may impact current processing logic, performance, or data quality.
+Complexity Increase: Existing code may need modification to handle new data, increasing risk of bugs.
+Compliance Risk: Mixing operational and audit data may complicate compliance reporting and data retention policies.
+2. Create a Separate Schema and Tables
+Pros:
+
+Isolation: No impact on existing application logic or data processing.
+Cleaner Architecture: Clear separation of concerns between operational and audit data.
+Flexibility: Easier to evolve audit requirements independently.
+Compliance: Simpler to manage retention, access, and reporting for audit data.
+Performance: No risk of overloading existing tables with high-volume audit data.
+Cons:
+
+Initial Setup: Requires new schema, tables, and possibly new data pipelines.
+Operational Overhead: Additional objects to manage.
+Recommendation
+Create a separate schema and tables for audit data.
+
+Rationale: Given the regulatory requirements and the fact that the audit data is unrelated to the existing application’s core functionality, a separate schema is the cleaner and safer approach. It minimizes risk to your production application, simplifies compliance, and provides flexibility for future audit requirements.
