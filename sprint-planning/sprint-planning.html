@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint Planner</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align items to the start to prevent vertical centering issues on smaller content */
+            min-height: 100vh; /* Ensure body takes full viewport height */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        /* Ensure inputs and buttons have consistent styling */
+        input[type="number"],
+        input[type="text"] {
+            @apply p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
+        }
+        button {
+            @apply px-4 py-2 rounded-md font-semibold transition-colors duration-200;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white hover:bg-blue-700;
+        }
+        .btn-danger {
+            @apply bg-red-600 text-white hover:bg-red-700;
+        }
+        .btn-secondary {
+            @apply bg-gray-300 text-gray-800 hover:bg-gray-400;
+        }
+        .story-planned {
+            @apply bg-green-100 border-green-400;
+        }
+        .story-unplanned {
+            @apply bg-red-100 border-red-400;
+        }
+        /* New classes for dynamic capacity summary */
+        .text-balanced {
+            @apply text-green-600;
+        }
+        .text-unbalanced {
+            @apply text-red-600;
+        }
+        /* Hidden class to toggle visibility */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-6 bg-white shadow-lg rounded-xl max-w-4xl w-full">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">Sprint Planner</h1>
+
+        <!-- Sprint Details Section -->
+        <div class="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-bold text-blue-800 mb-4">Sprint Details</h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <label for="sprintDuration" class="text-lg font-medium text-gray-700">Sprint Duration (days):</label>
+                <input type="number" id="sprintDuration" value="10" min="1" class="flex-grow w-full sm:w-auto">
+            </div>
+        </div>
+
+        <!-- Resources Section -->
+        <div class="mb-8 p-6 bg-green-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-bold text-green-800 mb-4">Resources</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                    <label for="resourceName" class="block text-sm font-medium text-gray-700 mb-1">Name:</label>
+                    <input type="text" id="resourceName" placeholder="e.g., John Doe" class="w-full">
+                </div>
+                <div>
+                    <label for="dailyCapacity" class="block text-sm font-medium text-gray-700 mb-1">Daily Capacity (hours):</label>
+                    <input type="number" id="dailyCapacity" value="8" min="0" class="w-full">
+                </div>
+                <div>
+                    <label for="leaveDays" class="block text-sm font-medium text-gray-700 mb-1">Leave Days (in sprint):</label>
+                    <input type="number" id="leaveDays" value="0" min="0" class="w-full">
+                </div>
+            </div>
+            <button id="addResourceBtn" class="btn-primary w-full sm:w-auto">Add Resource</button>
+
+            <div id="resourcesList" class="mt-6 space-y-4">
+                <!-- Resource items will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Story Planning Section -->
+        <div class="mb-8 p-6 bg-yellow-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-bold text-yellow-800 mb-4">Story Planning</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="storyName" class="block text-sm font-medium text-gray-700 mb-1">Story Name/Description:</label>
+                    <input type="text" id="storyName" placeholder="e.g., Implement User Login" class="w-full">
+                </div>
+                <div>
+                    <label for="storyPoints" class="block text-sm font-medium text-gray-700 mb-1">Story Points/Effort:</label>
+                    <input type="number" id="storyPoints" value="1" min="0.5" step="0.5" class="w-full">
+                </div>
+            </div>
+            <button id="addStoryBtn" class="btn-primary w-full sm:w-auto">Add Story</button>
+
+            <div id="storiesList" class="mt-6 space-y-4">
+                <!-- Story items will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Capacity Summary Section -->
+        <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-bold text-purple-800 mb-4">Capacity Summary</h2>
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                <button id="calculateCapacityBtn" class="btn-primary flex-grow">Recalculate Capacity</button>
+                <button id="exportDataBtn" class="btn-secondary flex-grow">Export Data</button>
+                <button id="importDataBtn" class="btn-secondary flex-grow">Import Data</button>
+            </div>
+            <div class="text-3xl font-extrabold text-gray-900">
+                Total Available Capacity: <span id="totalCapacity" class="text-purple-600">0</span> hours
+            </div>
+            <div class="text-xl font-semibold text-gray-700 mt-2">
+                Remaining Capacity: <span id="remainingCapacity">0</span> hours
+            </div>
+            <div class="text-xl font-semibold text-gray-700 mt-2">
+                Total Story Points Planned: <span id="totalStoryPoints" class="text-purple-600">0</span> points
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Array to store resource data
+        let resources = [];
+        // Array to store story data
+        let stories = [];
+        // Conversion factor: 1 story point = X hours
+        const STORY_POINT_TO_HOURS = 8; // Assuming 1 story point equals 8 hours (1 person-day)
+        // Margin for capacity planning (e.g., 0.10 for 10%)
+        const CAPACITY_MARGIN = 0.10;
+
+        // Get DOM elements for Sprint Details
+        const sprintDurationInput = document.getElementById('sprintDuration');
+
+        // Get DOM elements for Resources
+        const resourceNameInput = document.getElementById('resourceName');
+        const dailyCapacityInput = document.getElementById('dailyCapacity');
+        const leaveDaysInput = document.getElementById('leaveDays');
+        const addResourceBtn = document.getElementById('addResourceBtn');
+        const resourcesList = document.getElementById('resourcesList');
+
+        // Get DOM elements for Story Planning
+        const storyNameInput = document.getElementById('storyName');
+        const storyPointsInput = document.getElementById('storyPoints');
+        const addStoryBtn = document.getElementById('addStoryBtn');
+        const storiesList = document.getElementById('storiesList');
+
+        // Get DOM elements for Capacity Summary
+        const calculateCapacityBtn = document.getElementById('calculateCapacityBtn');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const importDataBtn = document.getElementById('importDataBtn');
+        const totalCapacitySpan = document.getElementById('totalCapacity');
+        const remainingCapacitySpan = document.getElementById('remainingCapacity');
+        const totalStoryPointsSpan = document.getElementById('totalStoryPoints');
+
+        /**
+         * Renders the list of resources in the UI.
+         * Clears existing list and re-renders based on the 'resources' array.
+         */
+        function renderResources() {
+            resourcesList.innerHTML = ''; // Clear current list
+            if (resources.length === 0) {
+                resourcesList.innerHTML = '<p class="text-gray-500 italic">No resources added yet.</p>';
+                return;
+            }
+
+            resources.forEach((resource, index) => {
+                const resourceDiv = document.createElement('div');
+                resourceDiv.classList.add('flex', 'flex-col', 'sm:flex-row', 'items-start', 'sm:items-center', 'gap-4', 'p-4', 'bg-white', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200');
+
+                // Display mode elements
+                const displaySpan = document.createElement('span');
+                displaySpan.classList.add('text-lg', 'font-medium', 'text-gray-800', 'flex-grow', 'resource-display');
+                displaySpan.innerHTML = `
+                    <strong class="text-blue-700">${resource.name}</strong>:
+                    ${resource.dailyCapacity} hrs/day,
+                    ${resource.leaveDays} leave days
+                `;
+
+                // Edit mode elements
+                const editForm = document.createElement('div');
+                editForm.classList.add('flex', 'flex-col', 'sm:flex-row', 'gap-2', 'flex-grow', 'resource-edit', 'hidden');
+                editForm.innerHTML = `
+                    <input type="text" value="${resource.name}" placeholder="Name" class="w-full sm:w-1/3 p-1 border rounded" data-field="name">
+                    <input type="number" value="${resource.dailyCapacity}" min="0" step="0.5" placeholder="Daily Capacity" class="w-full sm:w-1/3 p-1 border rounded" data-field="dailyCapacity">
+                    <input type="number" value="${resource.leaveDays}" min="0" placeholder="Leave Days" class="w-full sm:w-1/3 p-1 border rounded" data-field="leaveDays">
+                `;
+
+                // Buttons container
+                const buttonContainer = document.createElement('div');
+                buttonContainer.classList.add('flex', 'gap-2');
+
+                // Edit button
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.classList.add('btn-secondary', 'text-sm', 'resource-edit-btn');
+                editBtn.onclick = () => toggleResourceEdit(index, true);
+
+                // Save button (initially hidden)
+                const saveBtn = document.createElement('button');
+                saveBtn.textContent = 'Save';
+                saveBtn.classList.add('btn-primary', 'text-sm', 'resource-save-btn', 'hidden');
+                saveBtn.onclick = () => saveResource(index);
+
+                // Cancel button (initially hidden)
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.classList.add('btn-secondary', 'text-sm', 'resource-cancel-btn', 'hidden');
+                cancelBtn.onclick = () => toggleResourceEdit(index, false);
+
+
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Remove';
+                deleteBtn.classList.add('btn-danger', 'text-sm');
+                deleteBtn.onclick = () => removeResource(index); // Attach remove function
+
+                buttonContainer.appendChild(editBtn);
+                buttonContainer.appendChild(saveBtn);
+                buttonContainer.appendChild(cancelBtn);
+                buttonContainer.appendChild(deleteBtn);
+
+                resourceDiv.appendChild(displaySpan);
+                resourceDiv.appendChild(editForm);
+                resourceDiv.appendChild(buttonContainer);
+                resourcesList.appendChild(resourceDiv);
+            });
+        }
+
+        /**
+         * Toggles the edit mode for a specific resource.
+         * @param {number} index - The index of the resource to toggle.
+         * @param {boolean} isEditing - True to enter edit mode, false to exit.
+         */
+        function toggleResourceEdit(index, isEditing) {
+            const resourceDiv = resourcesList.children[index];
+            const displaySpan = resourceDiv.querySelector('.resource-display');
+            const editForm = resourceDiv.querySelector('.resource-edit');
+            const editBtn = resourceDiv.querySelector('.resource-edit-btn');
+            const saveBtn = resourceDiv.querySelector('.resource-save-btn');
+            const cancelBtn = resourceDiv.querySelector('.resource-cancel-btn');
+
+            if (isEditing) {
+                displaySpan.classList.add('hidden');
+                editForm.classList.remove('hidden');
+                editBtn.classList.add('hidden');
+                saveBtn.classList.remove('hidden');
+                cancelBtn.classList.remove('hidden');
+            } else {
+                displaySpan.classList.remove('hidden');
+                editForm.classList.add('hidden');
+                editBtn.classList.remove('hidden');
+                saveBtn.classList.add('hidden');
+                cancelBtn.classList.add('hidden');
+                // Re-render to revert any unsaved changes if cancelled
+                renderResources();
+            }
+        }
+
+        /**
+         * Saves the edited resource data.
+         * @param {number} index - The index of the resource to save.
+         */
+        function saveResource(index) {
+            const resourceDiv = resourcesList.children[index];
+            const nameInput = resourceDiv.querySelector('[data-field="name"]');
+            const dailyCapacityInput = resourceDiv.querySelector('[data-field="dailyCapacity"]');
+            const leaveDaysInput = resourceDiv.querySelector('[data-field="leaveDays"]');
+
+            const newName = nameInput.value.trim();
+            const newDailyCapacity = parseFloat(dailyCapacityInput.value);
+            const newLeaveDays = parseInt(leaveDaysInput.value);
+
+            // Basic validation
+            if (!newName || isNaN(newDailyCapacity) || newDailyCapacity <= 0 || isNaN(newLeaveDays) || newLeaveDays < 0) {
+                showMessageBox('Please enter valid resource details: Name, Daily Capacity (>0), and Leave Days (>=0).');
+                return;
+            }
+
+            resources[index] = {
+                name: newName,
+                dailyCapacity: newDailyCapacity,
+                leaveDays: newLeaveDays
+            };
+
+            toggleResourceEdit(index, false); // Exit edit mode
+            renderResources(); // Re-render with updated data
+            calculateAllCapacities(); // Recalculate capacities
+        }
+
+        /**
+         * Adds a new resource to the 'resources' array and updates the UI.
+         */
+        function addResource() {
+            const name = resourceNameInput.value.trim();
+            const dailyCapacity = parseFloat(dailyCapacityInput.value);
+            const leaveDays = parseInt(leaveDaysInput.value);
+
+            // Basic validation
+            if (!name || isNaN(dailyCapacity) || dailyCapacity <= 0 || isNaN(leaveDays) || leaveDays < 0) {
+                showMessageBox('Please enter valid resource details: Name, Daily Capacity (>0), and Leave Days (>=0).');
+                return;
+            }
+
+            resources.push({ name, dailyCapacity, leaveDays });
+
+            // Clear input fields
+            resourceNameInput.value = '';
+            dailyCapacityInput.value = 8; // Reset to default
+            leaveDaysInput.value = 0; // Reset to default
+
+            renderResources(); // Re-render the list
+            calculateAllCapacities(); // Recalculate all capacities after adding
+        }
+
+        /**
+         * Removes a resource from the 'resources' array by index and updates the UI.
+         * @param {number} index - The index of the resource to remove.
+         */
+        function removeResource(index) {
+            resources.splice(index, 1); // Remove resource from array
+            renderResources(); // Re-render the list
+            calculateAllCapacities(); // Recalculate all capacities after removing
+        }
+
+        /**
+         * Renders the list of stories in the UI.
+         * Clears existing list and re-renders based on the 'stories' array.
+         * Also highlights stories based on whether they fit within remaining capacity.
+         */
+        function renderStories() {
+            storiesList.innerHTML = ''; // Clear current list
+            if (stories.length === 0) {
+                storiesList.innerHTML = '<p class="text-gray-500 italic">No stories added yet.</p>';
+                return;
+            }
+
+            let cumulativeStoryHours = 0;
+
+            stories.forEach((story, index) => {
+                const storyDiv = document.createElement('div');
+                storyDiv.classList.add('flex', 'flex-col', 'sm:flex-row', 'items-start', 'sm:items-center', 'gap-4', 'p-4', 'rounded-lg', 'shadow-sm', 'border');
+
+                const storyHours = story.points * STORY_POINT_TO_HOURS;
+                cumulativeStoryHours += storyHours;
+
+                // Determine if the story can be "planned" based on cumulative hours vs. total capacity
+                if (cumulativeStoryHours <= parseFloat(totalCapacitySpan.textContent)) {
+                    storyDiv.classList.add('story-planned', 'bg-white'); // Apply planned styling
+                } else {
+                    storyDiv.classList.add('story-unplanned', 'bg-white'); // Apply unplanned styling
+                }
+
+                // Display mode elements
+                const displaySpan = document.createElement('span');
+                displaySpan.classList.add('text-lg', 'font-medium', 'text-gray-800', 'flex-grow', 'story-display');
+                displaySpan.innerHTML = `
+                    <strong class="text-yellow-700">${story.name}</strong>:
+                    ${story.points} points (${storyHours.toFixed(1)} hours)
+                `;
+
+                // Edit mode elements
+                const editForm = document.createElement('div');
+                editForm.classList.add('flex', 'flex-col', 'sm:flex-row', 'gap-2', 'flex-grow', 'story-edit', 'hidden');
+                editForm.innerHTML = `
+                    <input type="text" value="${story.name}" placeholder="Story Name" class="w-full sm:w-2/3 p-1 border rounded" data-field="name">
+                    <input type="number" value="${story.points}" min="0.5" step="0.5" placeholder="Story Points" class="w-full sm:w-1/3 p-1 border rounded" data-field="points">
+                `;
+
+                // Buttons container
+                const buttonContainer = document.createElement('div');
+                buttonContainer.classList.add('flex', 'gap-2');
+
+                // Edit button
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.classList.add('btn-secondary', 'text-sm', 'story-edit-btn');
+                editBtn.onclick = () => toggleStoryEdit(index, true);
+
+                // Save button (initially hidden)
+                const saveBtn = document.createElement('button');
+                saveBtn.textContent = 'Save';
+                saveBtn.classList.add('btn-primary', 'text-sm', 'story-save-btn', 'hidden');
+                saveBtn.onclick = () => saveStory(index);
+
+                // Cancel button (initially hidden)
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.classList.add('btn-secondary', 'text-sm', 'story-cancel-btn', 'hidden');
+                cancelBtn.onclick = () => toggleStoryEdit(index, false);
+
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Remove';
+                deleteBtn.classList.add('btn-danger', 'text-sm');
+                deleteBtn.onclick = () => removeStory(index); // Attach remove function
+
+                buttonContainer.appendChild(editBtn);
+                buttonContainer.appendChild(saveBtn);
+                buttonContainer.appendChild(cancelBtn);
+                buttonContainer.appendChild(deleteBtn);
+
+                storyDiv.appendChild(displaySpan);
+                storyDiv.appendChild(editForm);
+                storyDiv.appendChild(buttonContainer);
+                storiesList.appendChild(storyDiv);
+            });
+        }
+
+        /**
+         * Toggles the edit mode for a specific story.
+         * @param {number} index - The index of the story to toggle.
+         * @param {boolean} isEditing - True to enter edit mode, false to exit.
+         */
+        function toggleStoryEdit(index, isEditing) {
+            const storyDiv = storiesList.children[index];
+            const displaySpan = storyDiv.querySelector('.story-display');
+            const editForm = storyDiv.querySelector('.story-edit');
+            const editBtn = storyDiv.querySelector('.story-edit-btn');
+            const saveBtn = storyDiv.querySelector('.story-save-btn');
+            const cancelBtn = storyDiv.querySelector('.story-cancel-btn');
+
+            if (isEditing) {
+                displaySpan.classList.add('hidden');
+                editForm.classList.remove('hidden');
+                editBtn.classList.add('hidden');
+                saveBtn.classList.remove('hidden');
+                cancelBtn.classList.remove('hidden');
+            } else {
+                displaySpan.classList.remove('hidden');
+                editForm.classList.add('hidden');
+                editBtn.classList.remove('hidden');
+                saveBtn.classList.add('hidden');
+                cancelBtn.classList.add('hidden');
+                // Re-render to revert any unsaved changes if cancelled
+                renderStories();
+            }
+        }
+
+        /**
+         * Saves the edited story data.
+         * @param {number} index - The index of the story to save.
+         */
+        function saveStory(index) {
+            const storyDiv = storiesList.children[index];
+            const nameInput = storyDiv.querySelector('[data-field="name"]');
+            const pointsInput = storyDiv.querySelector('[data-field="points"]');
+
+            const newName = nameInput.value.trim();
+            const newPoints = parseFloat(pointsInput.value);
+
+            // Basic validation
+            if (!newName || isNaN(newPoints) || newPoints <= 0) {
+                showMessageBox('Please enter valid story details: Name and Story Points (>0).');
+                return;
+            }
+
+            stories[index] = {
+                name: newName,
+                points: newPoints
+            };
+
+            toggleStoryEdit(index, false); // Exit edit mode
+            renderStories(); // Re-render with updated data
+            calculateAllCapacities(); // Recalculate capacities
+        }
+
+
+        /**
+         * Adds a new story to the 'stories' array and updates the UI.
+         */
+        function addStory() {
+            const name = storyNameInput.value.trim();
+            const points = parseFloat(storyPointsInput.value);
+
+            // Basic validation
+            if (!name || isNaN(points) || points <= 0) {
+                showMessageBox('Please enter valid story details: Name and Story Points (>0).');
+                return;
+            }
+
+            stories.push({ name, points });
+
+            // Clear input fields
+            storyNameInput.value = '';
+            storyPointsInput.value = 1; // Reset to default
+
+            calculateAllCapacities(); // Recalculate all capacities after adding
+        }
+
+        /**
+         * Removes a story from the 'stories' array by index and updates the UI.
+         * @param {number} index - The index of the story to remove.
+         */
+        function removeStory(index) {
+            stories.splice(index, 1); // Remove story from array
+            calculateAllCapacities(); // Recalculate all capacities after removing
+        }
+
+        /**
+         * Calculates the total available capacity for the sprint.
+         * Accounts for sprint duration and individual resource leaves.
+         * @returns {number} The total available capacity in hours.
+         */
+        function calculateTotalAvailableCapacity() {
+            const sprintDuration = parseInt(sprintDurationInput.value);
+            if (isNaN(sprintDuration) || sprintDuration <= 0) {
+                totalCapacitySpan.textContent = 'Invalid Sprint Duration';
+                totalCapacitySpan.classList.add('text-red-600'); // Highlight error
+                return 0; // Return 0 if duration is invalid
+            } else {
+                totalCapacitySpan.classList.remove('text-red-600'); // Remove error highlight
+            }
+
+            let totalAvailableCapacity = 0;
+            resources.forEach(resource => {
+                // Calculate effective working days for the resource
+                const effectiveWorkingDays = Math.max(0, sprintDuration - resource.leaveDays);
+                // Calculate individual resource capacity
+                const individualCapacity = resource.dailyCapacity * effectiveWorkingDays;
+                totalAvailableCapacity += individualCapacity;
+            });
+            return totalAvailableCapacity;
+        }
+
+        /**
+         * Calculates the total story points and converts them to hours.
+         * @returns {number} The total story points in hours.
+         */
+        function calculateTotalStoryHours() {
+            let totalStoryHours = 0;
+            let totalPoints = 0;
+            stories.forEach(story => {
+                totalPoints += story.points;
+                totalStoryHours += story.points * STORY_POINT_TO_HOURS;
+            });
+            totalStoryPointsSpan.textContent = totalPoints.toFixed(1);
+            return totalStoryHours;
+        }
+
+        /**
+         * Orchestrates all capacity calculations and UI updates.
+         */
+        function calculateAllCapacities() {
+            const totalAvailableCapacity = calculateTotalAvailableCapacity();
+            const totalStoryHours = calculateTotalStoryHours();
+            const remainingCapacity = totalAvailableCapacity - totalStoryHours;
+
+            totalCapacitySpan.textContent = totalAvailableCapacity.toFixed(2);
+            remainingCapacitySpan.textContent = remainingCapacity.toFixed(2);
+
+            // Remove previous color classes
+            remainingCapacitySpan.classList.remove('text-balanced', 'text-unbalanced');
+
+            // Apply dynamic styling based on remaining capacity
+            const margin = totalAvailableCapacity * CAPACITY_MARGIN;
+            const lowerBound = -margin; // For over-committing (negative remaining capacity)
+            const upperBound = margin;  // For under-committing (positive remaining capacity)
+
+            console.log('--- Capacity Calculation Debug ---');
+            console.log('Total Available Capacity:', totalAvailableCapacity);
+            console.log('Total Story Hours:', totalStoryHours);
+            console.log('Remaining Capacity:', remainingCapacity);
+            console.log('Margin (10% of Total Capacity):', margin);
+            console.log('Lower Bound (for balanced):', lowerBound);
+            console.log('Upper Bound (for balanced):', upperBound);
+
+
+            if (remainingCapacity >= lowerBound && remainingCapacity <= upperBound) {
+                remainingCapacitySpan.classList.add('text-balanced'); // Green for balanced
+                console.log('Status: BALANCED (Green)');
+            } else {
+                remainingCapacitySpan.classList.add('text-unbalanced'); // Red for unbalanced (over or under)
+                console.log('Status: UNBALANCED (Red)');
+            }
+
+
+            // Re-render stories to update their "planned" status based on new capacity
+            renderStories();
+        }
+
+        /**
+         * Exports the current sprint data (resources and stories) as a JSON file.
+         */
+        function exportData() {
+            const sprintData = {
+                sprintDuration: parseInt(sprintDurationInput.value),
+                resources: resources,
+                stories: stories,
+                totalAvailableCapacityHours: parseFloat(totalCapacitySpan.textContent),
+                remainingCapacityHours: parseFloat(remainingCapacitySpan.textContent),
+                totalStoryPointsPlanned: parseFloat(totalStoryPointsSpan.textContent)
+            };
+
+            const dataStr = JSON.stringify(sprintData, null, 2); // Pretty print JSON
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sprint_planning_data.json';
+            document.body.appendChild(a); // Append to body to make it clickable in some browsers
+            a.click(); // Programmatically click the link to trigger download
+            document.body.removeChild(a); // Clean up the temporary link
+            URL.revokeObjectURL(url); // Release the object URL
+        }
+
+        /**
+         * Imports sprint data from a selected JSON file.
+         */
+        function importData() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json'; // Accept only JSON files
+
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) {
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const loadedData = JSON.parse(event.target.result);
+
+                        // Validate the structure of the loaded data
+                        if (loadedData.sprintDuration !== undefined &&
+                            Array.isArray(loadedData.resources) &&
+                            Array.isArray(loadedData.stories)) {
+
+                            sprintDurationInput.value = loadedData.sprintDuration;
+                            resources = loadedData.resources;
+                            stories = loadedData.stories;
+
+                            renderResources();
+                            renderStories();
+                            calculateAllCapacities(); // Recalculate based on loaded data
+                            showMessageBox('Sprint data loaded successfully!');
+                        } else {
+                            showMessageBox('Invalid JSON file format. Please select a valid sprint planning data file.');
+                        }
+                    } catch (error) {
+                        console.error('Error parsing JSON file:', error);
+                        showMessageBox('Error loading file. Please ensure it is a valid JSON file.');
+                    }
+                };
+                reader.readAsText(file); // Read the file content as text
+            };
+
+            fileInput.click(); // Programmatically click the hidden file input to open dialog
+        }
+
+        /**
+         * Displays a custom message box instead of alert().
+         * @param {string} message - The message to display.
+         */
+        function showMessageBox(message) {
+            // A simple modal/message box implementation
+            let messageBox = document.getElementById('customMessageBox');
+            if (!messageBox) {
+                messageBox = document.createElement('div');
+                messageBox.id = 'customMessageBox';
+                messageBox.classList.add('fixed', 'inset-0', 'bg-gray-800', 'bg-opacity-75', 'flex', 'items-center', 'justify-center', 'z-50', 'hidden');
+                messageBox.innerHTML = `
+                    <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+                        <p id="messageBoxContent" class="text-lg text-gray-800 mb-4"></p>
+                        <button id="messageBoxCloseBtn" class="btn-primary w-full">OK</button>
+                    </div>
+                `;
+                document.body.appendChild(messageBox);
+
+                document.getElementById('messageBoxCloseBtn').addEventListener('click', () => {
+                    messageBox.classList.add('hidden');
+                });
+            }
+            document.getElementById('messageBoxContent').textContent = message;
+            messageBox.classList.remove('hidden');
+        }
+
+
+        // Event Listeners
+        addResourceBtn.addEventListener('click', addResource);
+        addStoryBtn.addEventListener('click', addStory);
+        calculateCapacityBtn.addEventListener('click', calculateAllCapacities);
+        exportDataBtn.addEventListener('click', exportData);
+        importDataBtn.addEventListener('click', importData);
+        sprintDurationInput.addEventListener('input', calculateAllCapacities);
+
+        // Initial render when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            renderResources();
+            renderStories();
+            calculateAllCapacities(); // Initial calculation
+        });
+    </script>
+</body>
+</html>

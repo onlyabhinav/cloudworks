@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sprint Planning App</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label, input, button { margin: 5px; }
+    table { border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+  </style>
+</head>
+<body>
+
+  <h2>Sprint Planning Tool</h2>
+
+  <!-- Sprint Info -->
+  <label>Sprint Start Date: <input type="date" id="startDate" /></label>
+  <label>Sprint End Date: <input type="date" id="endDate" /></label>
+
+  <h3>Add Team Member</h3>
+  <input type="text" id="memberName" placeholder="Name" />
+  <input type="number" id="dailyCapacity" placeholder="Hours/Day" />
+  <input type="number" id="leaveDays" placeholder="Leave Days" />
+  <button onclick="addMember()">Add Member</button>
+
+  <table id="summaryTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Daily Capacity</th>
+        <th>Leave Days</th>
+        <th>Total Working Days</th>
+        <th>Total Capacity (hrs)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const members = [];
+
+    function getWorkingDays(start, end) {
+      let count = 0;
+      let current = new Date(start);
+      while (current <= end) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) count++; // Weekdays only
+        current.setDate(current.getDate() + 1);
+      }
+      return count;
+    }
+
+    function addMember() {
+      const name = document.getElementById('memberName').value;
+      const dailyCapacity = parseFloat(document.getElementById('dailyCapacity').value);
+      const leaveDays = parseInt(document.getElementById('leaveDays').value) || 0;
+      const start = new Date(document.getElementById('startDate').value);
+      const end = new Date(document.getElementById('endDate').value);
+
+      if (!name || isNaN(dailyCapacity) || isNaN(start.getTime()) || isNaN(end.getTime())) {
+        alert("Please fill in all fields correctly.");
+        return;
+      }
+
+      const totalWorkingDays = getWorkingDays(start, end) - leaveDays;
+      const totalCapacity = totalWorkingDays * dailyCapacity;
+
+      members.push({ name, dailyCapacity, leaveDays, totalWorkingDays, totalCapacity });
+      updateTable();
+    }
+
+    function updateTable() {
+      const tbody = document.querySelector('#summaryTable tbody');
+      tbody.innerHTML = '';
+      members.forEach(member => {
+        const row = `<tr>
+          <td>${member.name}</td>
+          <td>${member.dailyCapacity}</td>
+          <td>${member.leaveDays}</td>
+          <td>${member.totalWorkingDays}</td>
+          <td>${member.totalCapacity}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+  </script>
+</body>
+</html>
