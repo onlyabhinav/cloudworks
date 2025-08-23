@@ -20,7 +20,7 @@ Write-Host "- Allowing access to GitHub Actions history and logs"
 Write-Host ""
 
 # Execute gh command
-gh repo edit $repo --visibility=$visibility
+gh repo edit $repo --visibility=$visibility --accept-visibility-change-consequences
 if ($?) {
     Write-Host "Repository visibility changed successfully to $visibility."
 } else {
