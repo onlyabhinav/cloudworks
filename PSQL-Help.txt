@@ -1,0 +1,26 @@
+-- Set variables at the top of the file
+\set schema_name 'myschema'
+\set new_owner 'new_owner_name'
+
+-- Show what will be changed (optional)
+SELECT 'Will change owner of table: ' || tablename || ' (currently: ' || tableowner || ')'
+FROM pg_tables 
+WHERE schemaname = :'schema_name' 
+  AND tableowner != :'new_owner';
+
+-- Execute the ownership changes
+DO $$
+DECLARE
+    rec RECORD;
+    schema_name TEXT := :'schema_name';
+    new_owner TEXT := :'new_owner';
+BEGIN
+    FOR rec IN 
+        SELECT tablename FROM pg_tables 
+        WHERE schemaname = schema_name 
+          AND tableowner != new_owner
+    LOOP
+        EXECUTE 'ALTER TABLE ' || schema_name || '.' || rec.tablename || ' OWNER TO ' || new_owner;
+        RAISE NOTICE 'Changed owner of table: %', rec.tablename;
+    END LOOP;
+END $$;
