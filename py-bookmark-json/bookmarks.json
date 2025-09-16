@@ -1,0 +1,53 @@
+{
+  "common links": {
+    "Development": {
+      "GitHub": "https://github.com",
+      "Stack Overflow": "https://stackoverflow.com",
+      "MDN Web Docs": "https://developer.mozilla.org"
+    },
+    "Tools": {
+      "VS Code": "https://code.visualstudio.com",
+      "Postman": "https://postman.com",
+      "Docker Hub": "https://hub.docker.com"
+    },
+    "Learning": {
+      "freeCodeCamp": "https://freecodecamp.org",
+      "Codecademy": "https://codecademy.com",
+      "Coursera": "https://coursera.org"
+    }
+  },
+  "application-1 links": {
+    "Database": {
+      "Admin Panel": "https://app1-admin.example.com",
+      "Monitoring": "https://app1-monitor.example.com",
+      "Logs": "https://app1-logs.example.com"
+    },
+    "APIs": {
+      "User API": "https://app1-api.example.com/users",
+      "Payment API": "https://app1-api.example.com/payments",
+      "Analytics API": "https://app1-api.example.com/analytics"
+    },
+    "Documentation": {
+      "API Docs": "https://app1-docs.example.com",
+      "User Guide": "https://app1-help.example.com",
+      "Release Notes": "https://app1-releases.example.com"
+    }
+  },
+  "application-2 links": {
+    "Infrastructure": {
+      "AWS Console": "https://app2-aws.example.com",
+      "Kubernetes": "https://app2-k8s.example.com",
+      "CI/CD Pipeline": "https://app2-cicd.example.com"
+    },
+    "Monitoring": {
+      "Grafana": "https://app2-grafana.example.com",
+      "Prometheus": "https://app2-prometheus.example.com",
+      "Alerts": "https://app2-alerts.example.com"
+    },
+    "Support": {
+      "Issue Tracker": "https://app2-issues.example.com",
+      "Support Portal": "https://app2-support.example.com",
+      "Knowledge Base": "https://app2-kb.example.com"
+    }
+  }
+}

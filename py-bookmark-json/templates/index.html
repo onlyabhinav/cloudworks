@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Developer Bookmarks</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-top">
+        <h1><i class="fas fa-code"></i> Developer Bookmarks</h1>
+        <div class="header-controls">
+          <button class="import-btn" id="importBtn" title="Import from Gist">
+            <i class="fas fa-download"></i> Import
+          </button>
+          <button
+            class="bulk-open-btn"
+            id="bulkOpenBtn"
+            title="Open all visible bookmarks"
+            style="display: none"
+          >
+            <i class="fas fa-external-link-alt"></i> Open All
+          </button>
+          <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="section-container" id="sectionContainer">
+        <button class="section-btn active" data-section="all">
+          <i class="fas fa-layer-group"></i> All Sections
+        </button>
+      </div>
+    </div>
+
+    <div class="main-container" id="mainContainer">
+      <!-- Sections will be populated here -->
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal" style="display: none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3><i class="fas fa-download"></i> Import from Gist</h3>
+          <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="input-group">
+            <label for="gistUrl">Gist URL or ID:</label>
+            <input
+              type="text"
+              id="gistUrl"
+              placeholder="https://gist.github.com/username/gist-id or just gist-id"
+            />
+            <small>Enter a public GitHub Gist URL or just the Gist ID</small>
+          </div>
+          <div class="input-group">
+            <label for="gistFile">File name (optional):</label>
+            <input type="text" id="gistFile" placeholder="bookmarks.json" />
+            <small>Leave empty to use the first JSON file found</small>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-secondary" id="cancelImport">Cancel</button>
+            <button class="btn-primary" id="confirmImport">
+              <i class="fas fa-download"></i> Import Bookmarks
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">Link copied to clipboard!</div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>
