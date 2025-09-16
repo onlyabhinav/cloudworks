@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dev Bookmarks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Code&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="title-container">
+        <h1><i class="fa-solid fa-book-bookmark"></i> Dev Bookmarks</h1>
+        <button id="theme-toggle" title="Toggle theme">
+          <i class="fa-solid fa-sun"></i>
+        </button>
+      </div>
+      <div id="filter-container">
+        <h3>Filter Sections:</h3>
+        {% for section_name in bookmarks.keys() %}
+        <label>
+          <input
+            type="checkbox"
+            class="section-toggle"
+            value="{{ section_name }}"
+            checked
+          />
+          {{ section_name }}
+        </label>
+        {% endfor %}
+      </div>
+    </header>
+
+    <main id="bookmarks-container">
+      {% for section_name, section_content in bookmarks.items() %}
+      <section class="bookmark-section" data-section-name="{{ section_name }}">
+        <h2>{{ section_name }}</h2>
+        {% for category_name, links in section_content.items() %}
+        <div class="category">
+          <h3>{{ category_name }}</h3>
+          <ul>
+            {% for link_name, url in links.items() %}
+            <li>
+              <a href="{{ url }}" target="_blank" rel="noopener noreferrer"
+                >{{ link_name }}</a
+              >
+              <button class="copy-btn" data-url="{{ url }}" title="Copy link">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </section>
+      {% endfor %}
+    </main>
+
+    <div id="copy-feedback">Copied!</div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  </body>
+</html>
