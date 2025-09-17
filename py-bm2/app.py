@@ -3,8 +3,6 @@ import os
 import sys
 from flask import Flask, render_template
 
-# Create a class to handle the sub-context/proxy fix
-# This ensures that url_for() generates correct URLs when running in a sub-context
 class ReverseProxied(object):
     def __init__(self, app, script_name=None):
         self.app = app
@@ -20,18 +18,41 @@ class ReverseProxied(object):
 
 app = Flask(__name__)
 
-# Check for command-line argument for sub-context
 prefix = ''
 if len(sys.argv) > 1:
     prefix = sys.argv[1]
-    # Add the proxy fix middleware
     app.wsgi_app = ReverseProxied(app.wsgi_app, script_name=prefix)
+
+ICON_MAP = {
+    'github.com': 'fa-brands fa-github',
+    'gitlab.com': 'fa-brands fa-gitlab',
+    'bitbucket.org': 'fa-brands fa-bitbucket',
+    'stackoverflow.com': 'fa-brands fa-stack-overflow',
+    'python.org': 'fa-brands fa-python',
+    'docker.com': 'fa-brands fa-docker',
+    'kubernetes.io': 'fa-solid fa-dharmachakra',
+    'aws.amazon.com': 'fa-brands fa-aws',
+    'cloud.google.com': 'fa-solid fa-cloud',
+    'developer.mozilla.org': 'fa-brands fa-firefox-browser',
+    'jira': 'fa-brands fa-jira',
+    'jenkins': 'fa-brands fa-jenkins',
+    'postman.com': 'fa-solid fa-rocket',
+    'figma.com': 'fa-brands fa-figma'
+}
+DEFAULT_ICON = 'fa-solid fa-link'
+
+def get_icon_for_url(url):
+    for keyword, icon_class in ICON_MAP.items():
+        if keyword in url:
+            return icon_class
+    return DEFAULT_ICON
+
+@app.context_processor
+def inject_utilities():
+    return dict(get_icon_for_url=get_icon_for_url)
 
 @app.route('/')
 def index():
-    """
-    Reads bookmarks from the JSON file and renders the main page.
-    """
     try:
         with open('bookmarks.json', 'r', encoding='utf-8') as f:
             bookmarks_data = json.load(f)
@@ -41,5 +62,4 @@ def index():
     return render_template('index.html', bookmarks=bookmarks_data)
 
 if __name__ == '__main__':
-    # Use port 5001 to avoid conflicts with other common dev servers
     app.run(debug=True, port=5001)
