@@ -1,0 +1,18 @@
+WITH ranked_timesheets AS (
+    SELECT
+        timesheet_id,
+        employee_id,
+        from_date,
+        to_date,
+        active_flag,
+        ROW_NUMBER() OVER (
+            PARTITION BY employee_id, from_date, to_date
+            ORDER BY timesheet_id DESC   -- assuming higher ID = latest
+        ) AS rn
+    FROM employee_timesheet
+)
+UPDATE employee_timesheet et
+SET active_flag = 0
+FROM ranked_timesheets r
+WHERE et.timesheet_id = r.timesheet_id
+  AND r.rn > 1;   -- keep only the latest one (rn = 1)
