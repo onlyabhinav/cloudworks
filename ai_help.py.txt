@@ -1,0 +1,515 @@
+import os
+import re
+import json
+import requests
+import PyPDF2
+import pdfplumber
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from azure.core.credentials import AzureKeyCredential
+from azure.search.documents import SearchClient
+from azure.search.documents.indexes import SearchIndexClient
+from azure.search.documents.models import VectorizedQuery
+from azure.search.documents.indexes.models import (
+    SearchIndex, SimpleField, SearchableField, VectorSearch, 
+    VectorSearchProfile, HnswAlgorithmConfiguration
+)
+import openai
+from openai import AzureOpenAI
+
+@dataclass
+class FinancialMetrics:
+    company_name: str
+    ticker: str
+    revenue: Optional[float] = None
+    employees: Optional[int] = None
+    market_cap: Optional[float] = None
+    enterprise_value: Optional[float] = None
+    ebitda: Optional[float] = None
+    ev_ebitda: Optional[float] = None
+    filing_year: Optional[int] = None
+
+class PDF10KProcessor:
+    def __init__(self, 
+                 azure_search_endpoint: str,
+                 azure_search_key: str,
+                 azure_openai_endpoint: str,
+                 azure_openai_key: str):
+        
+        # Initialize Azure clients
+        self.search_client = SearchIndexClient(
+            endpoint=azure_search_endpoint,
+            credential=AzureKeyCredential(azure_search_key)
+        )
+        
+        self.openai_client = AzureOpenAI(
+            azure_endpoint=azure_openai_endpoint,
+            api_key=azure_openai_key,
+            api_version="2024-02-01"
+        )
+        
+        self.index_name = "financial-reports-index"
+    
+    def extract_text_from_pdf(self, pdf_path: str) -> Tuple[str, List[Dict]]:
+        """Extract text and tables from PDF using PyPDF2 and pdfplumber"""
+        
+        # Method 1: Extract all text using PyPDF2
+        pdf_text = ""
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page_num, page in enumerate(pdf_reader.pages):
+                    try:
+                        page_text = page.extract_text()
+                        pdf_text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
+                    except Exception as e:
+                        print(f"Error extracting page {page_num + 1}: {e}")
+                        continue
+        except Exception as e:
+            print(f"Error reading PDF with PyPDF2: {e}")
+        
+        # Method 2: Extract tables using pdfplumber (better for tabular data)
+        tables = self._extract_tables_with_pdfplumber(pdf_path)
+        
+        return pdf_text, tables
+    
+    def _extract_tables_with_pdfplumber(self, pdf_path: str) -> List[Dict]:
+        """Extract tables using pdfplumber for better table detection"""
+        
+        tables = []
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                for page_num, page in enumerate(pdf.pages):
+                    try:
+                        # Extract tables from page
+                        page_tables = page.extract_tables()
+                        
+                        for table_idx, table in enumerate(page_tables):
+                            if table and len(table) > 1:  # Ensure table has content
+                                table_data = {
+                                    'page_number': page_num + 1,
+                                    'table_index': table_idx,
+                                    'headers': table[0] if table else [],
+                                    'rows': table[1:] if len(table) > 1 else [],
+                                    'raw_table': table
+                                }
+                                tables.append(table_data)
+                        
+                        # Also try to extract any tabular-looking text
+                        page_text = page.extract_text()
+                        if page_text:
+                            table_like_text = self._find_table_patterns_in_text(page_text)
+                            if table_like_text:
+                                tables.extend(table_like_text)
+                                
+                    except Exception as e:
+                        print(f"Error extracting tables from page {page_num + 1}: {e}")
+                        continue
+                        
+        except Exception as e:
+            print(f"Error reading PDF with pdfplumber: {e}")
+        
+        return tables
+    
+    def _find_table_patterns_in_text(self, text: str) -> List[Dict]:
+        """Find table-like patterns in extracted text"""
+        
+        table_patterns = []
+        lines = text.split('\n')
+        
+        # Look for financial statement patterns
+        financial_sections = []
+        current_section = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if current_section:
+                    financial_sections.append(current_section)
+                    current_section = []
+                continue
+            
+            # Check if line looks like a financial data row (contains numbers and dollar signs)
+            if re.search(r'\$[\d,]+|\d{1,3}(?:,\d{3})*(?:\.\d+)?', line):
+                current_section.append(line)
+            elif current_section:  # End of a potential table section
+                financial_sections.append(current_section)
+                current_section = []
+        
+        # Convert detected sections to table format
+        for idx, section in enumerate(financial_sections):
+            if len(section) >= 2:  # At least 2 rows to be considered a table
+                table_data = {
+                    'page_number': 0,  # Unknown page from text extraction
+                    'table_index': f"text_pattern_{idx}",
+                    'text_rows': section,
+                    'type': 'text_pattern'
+                }
+                table_patterns.append(table_data)
+        
+        return table_patterns
+    
+    def extract_financial_metrics(self, text: str, tables: List[Dict], company_name: str, ticker: str) -> FinancialMetrics:
+        """Extract structured financial metrics from text and tables"""
+        
+        metrics = FinancialMetrics(company_name=company_name, ticker=ticker)
+        
+        # Extract filing year
+        year_match = re.search(r'(?:fiscal year|year ended).*?(\d{4})', text, re.IGNORECASE)
+        if year_match:
+            metrics.filing_year = int(year_match.group(1))
+        
+        # Revenue extraction patterns
+        revenue_patterns = [
+            r'(?i)net\s+(?:sales|revenues?)\s*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?',
+            r'(?i)total\s+revenues?\s*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?',
+            r'(?i)sales\s*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?'
+        ]
+        
+        # Employee count patterns
+        employee_patterns = [
+            r'(?i)(?:full-time\s+)?employees?\s*[:\-]?\s*(?:approximately\s+)?(\d{1,3}(?:,\d{3})*)',
+            r'(?i)(\d{1,3}(?:,\d{3})*)\s+(?:full-time\s+)?employees?'
+        ]
+        
+        # Extract from main text
+        for pattern in revenue_patterns:
+            match = re.search(pattern, text)
+            if match:
+                metrics.revenue = self._parse_financial_number(match.group(1), text[match.start():match.end()])
+                break
+        
+        for pattern in employee_patterns:
+            match = re.search(pattern, text)
+            if match:
+                metrics.employees = int(match.group(1).replace(',', ''))
+                break
+        
+        # Extract from tables (more accurate for financial data)
+        table_text = ' '.join([
+            ' '.join([cell['content'] for cell in table['cells']]) 
+            for table in tables
+        ])
+        
+        # Try to extract revenue from tables if not found in text
+        if not metrics.revenue:
+            for pattern in revenue_patterns:
+                match = re.search(pattern, table_text)
+                if match:
+                    metrics.revenue = self._parse_financial_number(match.group(1), table_text[match.start():match.end()])
+                    break
+        
+        # Get market data from external API (Yahoo Finance example)
+        market_data = self._get_market_data(ticker)
+        if market_data:
+            metrics.market_cap = market_data.get('market_cap')
+            metrics.enterprise_value = market_data.get('enterprise_value')
+            metrics.ev_ebitda = market_data.get('ev_ebitda')
+        
+        return metrics
+    
+    def _parse_financial_number(self, number_str: str, context: str) -> Optional[float]:
+        """Parse financial numbers handling millions/billions"""
+        try:
+            # Clean the number
+            clean_number = re.sub(r'[^\d.]', '', number_str)
+            base_value = float(clean_number)
+            
+            # Check for scale in context
+            context_lower = context.lower()
+            if 'billion' in context_lower:
+                return base_value * 1_000_000_000
+            elif 'million' in context_lower:
+                return base_value * 1_000_000
+            else:
+                # Assume thousands if number is small
+                return base_value * 1000 if base_value < 1000 else base_value
+        except:
+            return None
+    
+    def _get_market_data(self, ticker: str) -> Optional[Dict]:
+        """Get market data from external API (implement with your preferred provider)"""
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            
+            return {
+                'market_cap': info.get('marketCap'),
+                'enterprise_value': info.get('enterpriseValue'),
+                'ev_ebitda': info.get('enterpriseToEbitda')
+            }
+        except:
+            return None
+    
+    def chunk_document(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
+        """Split document into overlapping chunks"""
+        
+        # Split by sections first (10-K has standardized sections)
+        section_patterns = [
+            r'ITEM\s+\d+[A-Z]?\.',
+            r'PART\s+[IVX]+',
+            r'BUSINESS\s*$',
+            r'RISK\s+FACTORS',
+            r'MANAGEMENT.S\s+DISCUSSION'
+        ]
+        
+        sections = []
+        current_pos = 0
+        
+        for pattern in section_patterns:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE))
+            for match in matches:
+                if match.start() > current_pos:
+                    sections.append(text[current_pos:match.start()])
+                current_pos = match.start()
+        
+        # Add remaining text
+        if current_pos < len(text):
+            sections.append(text[current_pos:])
+        
+        # Further chunk large sections
+        chunks = []
+        for section in sections:
+            if len(section) <= chunk_size:
+                chunks.append(section)
+            else:
+                # Split large sections with overlap
+                for i in range(0, len(section), chunk_size - overlap):
+                    chunk = section[i:i + chunk_size]
+                    if chunk.strip():
+                        chunks.append(chunk)
+        
+        return chunks
+    
+    def generate_embeddings(self, text_chunks: List[str]) -> List[List[float]]:
+        """Generate embeddings for text chunks using Azure OpenAI"""
+        
+        embeddings = []
+        
+        for chunk in text_chunks:
+            try:
+                response = self.openai_client.embeddings.create(
+                    input=chunk,
+                    model="text-embedding-ada-002"  # or text-embedding-3-large
+                )
+                embeddings.append(response.data[0].embedding)
+            except Exception as e:
+                print(f"Error generating embedding: {e}")
+                embeddings.append([0.0] * 1536)  # Default embedding size
+        
+        return embeddings
+    
+    def create_search_index(self):
+        """Create Azure Search index with vector support"""
+        
+        fields = [
+            SimpleField(name="id", type="Edm.String", key=True),
+            SearchableField(name="company_name", type="Edm.String", filterable=True, facetable=True),
+            SearchableField(name="ticker", type="Edm.String", filterable=True),
+            SimpleField(name="filing_year", type="Edm.Int32", filterable=True, sortable=True),
+            SearchableField(name="section_type", type="Edm.String", filterable=True, facetable=True),
+            SearchableField(name="content", type="Edm.String"),
+            SearchableField(name="content_vector", type="Collection(Edm.Single)", 
+                          searchable=True, vector_search_dimensions=1536, vector_search_profile_name="vector-profile"),
+            SimpleField(name="revenue", type="Edm.Double", filterable=True, sortable=True),
+            SimpleField(name="employees", type="Edm.Int64", filterable=True, sortable=True),
+            SimpleField(name="market_cap", type="Edm.Double", filterable=True, sortable=True),
+            SimpleField(name="enterprise_value", type="Edm.Double", filterable=True, sortable=True),
+            SimpleField(name="ebitda", type="Edm.Double", filterable=True, sortable=True),
+            SimpleField(name="ev_ebitda", type="Edm.Double", filterable=True, sortable=True),
+        ]
+        
+        # Configure vector search
+        vector_search = VectorSearch(
+            profiles=[
+                VectorSearchProfile(
+                    name="vector-profile",
+                    algorithm_configuration_name="hnsw-config"
+                )
+            ],
+            algorithms=[
+                HnswAlgorithmConfiguration(name="hnsw-config")
+            ]
+        )
+        
+        index = SearchIndex(
+            name=self.index_name,
+            fields=fields,
+            vector_search=vector_search
+        )
+        
+        self.search_client.create_or_update_index(index)
+        print(f"Created index: {self.index_name}")
+    
+    def ingest_document(self, pdf_path: str, company_name: str, ticker: str):
+        """Complete pipeline to ingest a 10-K PDF into Azure Search"""
+        
+        print(f"Processing {company_name} ({ticker})...")
+        
+        # Step 1: Extract text and tables
+        text, tables = self.extract_text_from_pdf(pdf_path)
+        
+        # Step 2: Extract financial metrics
+        metrics = self.extract_financial_metrics(text, tables, company_name, ticker)
+        
+        # Step 3: Chunk the document
+        chunks = self.chunk_document(text)
+        
+        # Step 4: Generate embeddings
+        embeddings = self.generate_embeddings(chunks)
+        
+        # Step 5: Create documents for indexing
+        documents = []
+        search_client = SearchClient(
+            endpoint=self.search_client._endpoint,
+            index_name=self.index_name,
+            credential=self.search_client._credential
+        )
+        
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            doc_id = f"{ticker}_{metrics.filing_year}_{i}"
+            
+            # Determine section type based on content
+            section_type = self._classify_section(chunk)
+            
+            document = {
+                "id": doc_id,
+                "company_name": company_name,
+                "ticker": ticker,
+                "filing_year": metrics.filing_year,
+                "section_type": section_type,
+                "content": chunk,
+                "content_vector": embedding,
+                "revenue": metrics.revenue,
+                "employees": metrics.employees,
+                "market_cap": metrics.market_cap,
+                "enterprise_value": metrics.enterprise_value,
+                "ebitda": metrics.ebitda,
+                "ev_ebitda": metrics.ev_ebitda
+            }
+            
+            documents.append(document)
+        
+        # Step 6: Upload to Azure Search
+        try:
+            result = search_client.upload_documents(documents)
+            print(f"Uploaded {len(documents)} chunks for {company_name}")
+            return result
+        except Exception as e:
+            print(f"Error uploading documents: {e}")
+            return None
+    
+    def _classify_section(self, text: str) -> str:
+        """Classify document section based on content"""
+        text_lower = text.lower()
+        
+        if any(keyword in text_lower for keyword in ['business', 'overview', 'operations']):
+            return 'business_overview'
+        elif any(keyword in text_lower for keyword in ['risk', 'factors', 'uncertainties']):
+            return 'risk_factors'
+        elif any(keyword in text_lower for keyword in ['financial', 'results', 'discussion', 'analysis']):
+            return 'financial_analysis'
+        elif any(keyword in text_lower for keyword in ['balance sheet', 'income statement', 'cash flow']):
+            return 'financial_statements'
+        else:
+            return 'general'
+    
+    def search_comparable_companies(self, query: str, reference_company: str = None) -> List[Dict]:
+        """Search for comparable companies based on query"""
+        
+        # Generate embedding for the query
+        query_embedding = self.generate_embeddings([query])[0]
+        
+        search_client = SearchClient(
+            endpoint=self.search_client._endpoint,
+            index_name=self.index_name,
+            credential=self.search_client._credential
+        )
+        
+        # Create vector query
+        vector_query = VectorizedQuery(
+            vector=query_embedding,
+            k_nearest_neighbors=10,
+            fields="content_vector"
+        )
+        
+        # Build filter for comparable companies
+        filter_expr = "section_type eq 'financial_analysis' or section_type eq 'business_overview'"
+        if reference_company:
+            # Exclude the reference company from results
+            filter_expr += f" and company_name ne '{reference_company}'"
+        
+        # Execute search
+        results = search_client.search(
+            search_text=query,
+            vector_queries=[vector_query],
+            filter=filter_expr,
+            select="company_name,ticker,revenue,employees,market_cap,enterprise_value,ev_ebitda",
+            top=50
+        )
+        
+        # Aggregate results by company
+        company_metrics = {}
+        for result in results:
+            company = result['company_name']
+            if company not in company_metrics:
+                company_metrics[company] = {
+                    'company_name': result['company_name'],
+                    'ticker': result['ticker'],
+                    'revenue': result.get('revenue'),
+                    'employees': result.get('employees'),
+                    'market_cap': result.get('market_cap'),
+                    'enterprise_value': result.get('enterprise_value'),
+                    'ev_ebitda': result.get('ev_ebitda'),
+                    'search_score': result['@search.score']
+                }
+        
+        return list(company_metrics.values())
+
+# Usage Example
+def main():
+    # Initialize the processor
+    processor = PDF10KProcessor(
+        azure_search_endpoint="https://your-search-service.search.windows.net",
+        azure_search_key="your-search-key",
+        azure_openai_endpoint="https://your-openai.openai.azure.com",
+        azure_openai_key="your-openai-key",
+        doc_intelligence_endpoint="https://your-doc-intelligence.cognitiveservices.azure.com",
+        doc_intelligence_key="your-doc-intelligence-key"
+    )
+    
+    # Create the search index
+    processor.create_search_index()
+    
+    # Process multiple 10-K files
+    companies = [
+        ("amazon_10k_2023.pdf", "Amazon Inc", "AMZN"),
+        ("microsoft_10k_2023.pdf", "Microsoft Corporation", "MSFT"),
+        ("google_10k_2023.pdf", "Alphabet Inc", "GOOGL"),
+        # Add more companies...
+    ]
+    
+    for pdf_path, company_name, ticker in companies:
+        processor.ingest_document(pdf_path, company_name, ticker)
+    
+    # Search for comparable companies
+    query = "valuation metrics for companies comparable to Amazon"
+    results = processor.search_comparable_companies(query, "Amazon Inc")
+    
+    # Format results in tabular format
+    print("\nComparable Companies to Amazon:")
+    print("-" * 100)
+    print(f"{'Company Name':<25} {'Revenue':<15} {'Employees':<12} {'Market Cap':<15} {'EV':<15} {'EV/EBITDA':<10}")
+    print("-" * 100)
+    
+    for company in results[:10]:  # Top 10 results
+        print(f"{company['company_name']:<25} "
+              f"${company.get('revenue', 0)/1e9:<14.1f}B "
+              f"{company.get('employees', 0):<12,} "
+              f"${company.get('market_cap', 0)/1e9:<14.1f}B "
+              f"${company.get('enterprise_value', 0)/1e9:<14.1f}B "
+              f"{company.get('ev_ebitda', 0):<10.1f}")
+
+if __name__ == "__main__":
+    main()
