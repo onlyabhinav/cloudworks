@@ -16,7 +16,6 @@
     />
 
     <style>
-      /* ... (Font imports and color variables remain the same) ... */
       :root {
         --font-family: "JetBrains Mono", "Fira Code", monospace;
         --bg-color: #1e1e1e;
@@ -144,13 +143,13 @@
         padding: 15px;
         flex: 1 1 300px;
       }
+
+      /* <<< CHANGE HERE: Removed border and padding from h3 >>> */
       .category h3 {
         font-size: 1em;
         color: var(--text-color);
         margin-bottom: 10px;
         font-weight: 600;
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 5px;
       }
 
       /* Column Layout Overrides */
@@ -160,7 +159,7 @@
         padding-bottom: 10px;
       }
       #bookmarks-container.layout-columns .bookmark-section {
-        width: auto; /* <<< THIS IS THE FIX <<< */
+        width: auto;
         min-width: 320px;
         flex-shrink: 0;
         background-color: var(--card-bg-color);
@@ -309,7 +308,6 @@
     <div id="copy-feedback">Copied!</div>
 
     <script>
-      // --- The JavaScript section is unchanged and correct ---
       document.addEventListener("DOMContentLoaded", () => {
         const themeToggleBtn = document.getElementById("theme-toggle");
         const body = document.body;
@@ -343,14 +341,18 @@
               '<i class="fa-solid fa-grip-lines"></i>';
             layoutToggleBtn.title = "Switch to Row Layout";
           } else {
+            // 'rows'
             bookmarksContainer.classList.remove("layout-columns");
             layoutToggleBtn.innerHTML =
               '<i class="fa-solid fa-table-columns"></i>';
             layoutToggleBtn.title = "Switch to Column Layout";
           }
         };
-        const savedLayout = localStorage.getItem("layout") || "rows";
+
+        // <<< CHANGE HERE: Default layout is now 'columns' >>>
+        const savedLayout = localStorage.getItem("layout") || "columns";
         applyLayout(savedLayout);
+
         layoutToggleBtn.addEventListener("click", () => {
           let newLayout = bookmarksContainer.classList.contains(
             "layout-columns"
