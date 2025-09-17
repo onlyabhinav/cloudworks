@@ -17,7 +17,7 @@ from azure.search.documents.indexes.models import (
     SearchIndex, SimpleField, SearchableField, VectorSearch, 
     VectorSearchProfile, HnswAlgorithmConfiguration, SearchField, SearchFieldDataType
 )
-import openai  # Version 0.28.0
+from openai import AzureOpenAI
 
 @dataclass
 class FinancialMetrics:
@@ -80,11 +80,11 @@ class Generic10KIngestionTool:
             credential=AzureKeyCredential(azure_search_key)
         )
         
-        # Configure OpenAI for version 0.28.0
-        openai.api_type = "azure"
-        openai.api_base = azure_openai_endpoint
-        openai.api_key = azure_openai_key
-        openai.api_version = "2023-05-15"  # Compatible API version for 0.28.0
+        self.openai_client = AzureOpenAI(
+            azure_endpoint=azure_openai_endpoint,
+            api_key=azure_openai_key,
+            api_version="2024-02-01"
+        )
         
         self.embedding_model = embedding_model
         self.index_name = "financial-reports-index"
@@ -379,7 +379,7 @@ class Generic10KIngestionTool:
         return chunks
     
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings with OpenAI 0.28.0 syntax"""
+        """Generate embeddings with error handling and batching"""
         
         embeddings = []
         batch_size = 16
@@ -388,13 +388,12 @@ class Generic10KIngestionTool:
             batch = texts[i:i + batch_size]
             
             try:
-                # OpenAI 0.28.0 syntax
-                response = openai.Embedding.create(
+                response = self.openai_client.embeddings.create(
                     input=batch,
-                    engine=self.embedding_model  # Use 'engine' instead of 'model' for 0.28.0
+                    model=self.embedding_model
                 )
                 
-                batch_embeddings = [data['embedding'] for data in response['data']]
+                batch_embeddings = [data.embedding for data in response.data]
                 embeddings.extend(batch_embeddings)
                 
             except Exception as e:
@@ -643,16 +642,8 @@ class Generic10KIngestionTool:
             # Step 3: Search for comparable companies
             query = f"valuation metrics financial performance {ref_sector} companies"
             
-            # Generate query embedding for semantic similarity - OpenAI 0.28.0 syntax
-            try:
-                query_response = openai.Embedding.create(
-                    input=[query],
-                    engine=self.embedding_model
-                )
-                query_embedding = query_response['data'][0]['embedding']
-            except Exception as e:
-                print(f"Error generating query embedding: {e}")
-                query_embedding = [0.0] * 1536
+            # Generate query embedding for semantic similarity
+            query_embedding = self.generate_embeddings([query])[0]
             
             results = search_client.search(
                 search_text=query,
@@ -699,30 +690,16 @@ class Generic10KIngestionTool:
             print(f"Error finding comparable companies: {e}")
             return pd.DataFrame()
 
-# Updated requirements.txt for OpenAI 0.28.0
-def create_requirements_file():
-    requirements = """azure-search-documents>=11.4.0
-openai==0.28.0
-PyPDF2>=3.0.0
-pdfplumber>=0.9.0
-pandas>=1.5.0
-numpy>=1.24.0
-python-dotenv>=1.0.0"""
-    
-    with open("requirements.txt", "w") as f:
-        f.write(requirements)
-    print("Created requirements.txt with OpenAI 0.28.0")
-
-# Usage example
+# Usage Example and Demo
 def main():
-    """Demo of the generic 10-K ingestion tool with OpenAI 0.28.0"""
+    """Demo of the generic 10-K ingestion tool"""
     
     # Configuration
     config = {
-        "azure_search_endpoint": os.getenv("AZURE_SEARCH_ENDPOINT"),
-        "azure_search_key": os.getenv("AZURE_SEARCH_KEY"),
-        "azure_openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "azure_openai_key": os.getenv("AZURE_OPENAI_KEY")
+        "azure_search_endpoint": "https://your-search-service.search.windows.net",
+        "azure_search_key": "your-search-admin-key",
+        "azure_openai_endpoint": "https://your-openai.openai.azure.com",
+        "azure_openai_key": "your-openai-key"
     }
     
     # Initialize the tool
@@ -862,112 +839,116 @@ class FinancialAnalysisReports:
         
         return pd.DataFrame(comparison_data)
 
-# Create a quick runner script for OpenAI 0.28.0
-def create_runner_script():
-    """Create a runner script that works with OpenAI 0.28.0"""
+# Enhanced usage example with batch processing
+def batch_process_10k_documents(tool: Generic10KIngestionTool, pdf_directory: str):
+    """Process all 10-K PDFs in a directory"""
     
-    runner_script = '''import os
-from dotenv import load_dotenv
-from Generic10KIngestionTool import Generic10KIngestionTool
-
-# Load environment variables
-load_dotenv()
-
-def main():
-    # Configuration
-    config = {
-        "azure_search_endpoint": os.getenv("AZURE_SEARCH_ENDPOINT"),
-        "azure_search_key": os.getenv("AZURE_SEARCH_KEY"),
-        "azure_openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "azure_openai_key": os.getenv("AZURE_OPENAI_KEY")
-    }
-    
-    # Initialize tool
-    tool = Generic10KIngestionTool(**config)
-    
-    # Create index (run once)
-    print("Creating search index...")
-    tool.create_search_index()
-    
-    # Process PDFs
-    pdf_files = ["10K_SEC_GOOGLE.pdf"]  # Add more files as needed
-    
-    for pdf_file in pdf_files:
-        if os.path.exists(pdf_file):
-            print(f"Processing {pdf_file}...")
-            success = tool.ingest_10k_pdf(pdf_file)
-            print(f"{'Success' if success else 'Failed'}: {pdf_file}")
-        else:
-            print(f"File not found: {pdf_file}")
-    
-    # Find comparable companies
-    print("\\nSearching for comparable companies...")
-    results = tool.find_comparable_companies("Google")
-    
-    if not results.empty:
-        print("\\nComparable Companies:")
-        print(results.to_string(index=False))
-        results.to_csv("comparable_companies.csv", index=False)
-        print("\\nResults saved to comparable_companies.csv")
-    else:
-        print("No comparable companies found. Add more company 10-Ks first.")
-
-if __name__ == "__main__":
-    main()
-'''
-    
-    with open("run_analysis_028.py", "w") as f:
-        f.write(runner_script)
-    print("Created run_analysis_028.py for OpenAI 0.28.0")
-
-# Quick ingestion script for single files
-def create_quick_ingest_script():
-    """Create quick ingestion script for single files"""
-    
-    quick_script = '''import os
-import sys
-from dotenv import load_dotenv
-from Generic10KIngestionTool import Generic10KIngestionTool
-
-load_dotenv()
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python quick_ingest_028.py <pdf_filename>")
+    if not os.path.exists(pdf_directory):
+        print(f"Directory not found: {pdf_directory}")
         return
     
-    pdf_file = sys.argv[1]
+    pdf_files = [f for f in os.listdir(pdf_directory) if f.lower().endswith('.pdf')]
     
+    if not pdf_files:
+        print(f"No PDF files found in {pdf_directory}")
+        return
+    
+    print(f"Found {len(pdf_files)} PDF files to process")
+    
+    success_count = 0
+    failed_files = []
+    
+    for pdf_file in pdf_files:
+        pdf_path = os.path.join(pdf_directory, pdf_file)
+        print(f"\nProcessing: {pdf_file}")
+        
+        try:
+            success = tool.ingest_10k_pdf(pdf_path)
+            if success:
+                success_count += 1
+                print(f"✓ Successfully processed {pdf_file}")
+            else:
+                failed_files.append(pdf_file)
+                print(f"✗ Failed to process {pdf_file}")
+        except Exception as e:
+            failed_files.append(pdf_file)
+            print(f"✗ Error processing {pdf_file}: {e}")
+    
+    print(f"\n" + "="*60)
+    print(f"BATCH PROCESSING SUMMARY")
+    print(f"="*60)
+    print(f"Total files: {len(pdf_files)}")
+    print(f"Successfully processed: {success_count}")
+    print(f"Failed: {len(failed_files)}")
+    
+    if failed_files:
+        print(f"\nFailed files:")
+        for file in failed_files:
+            print(f"  - {file}")
+
+def interactive_search_demo(tool: Generic10KIngestionTool):
+    """Interactive demo for searching comparable companies"""
+    
+    print("\n" + "="*80)
+    print("INTERACTIVE COMPARABLE COMPANY SEARCH")
+    print("="*80)
+    
+    while True:
+        reference_company = input("\nEnter company name or ticker (or 'quit' to exit): ").strip()
+        
+        if reference_company.lower() in ['quit', 'exit', 'q']:
+            break
+        
+        if not reference_company:
+            continue
+        
+        try:
+            print(f"\nSearching for companies comparable to {reference_company}...")
+            comparable_df = tool.find_comparable_companies(reference_company, top_companies=8)
+            
+            if not comparable_df.empty:
+                print(f"\nValuation Metrics - Companies Comparable to {reference_company}:")
+                print("-" * 120)
+                print(comparable_df.to_string(index=False))
+                
+                # Option to save results
+                save = input(f"\nSave results to CSV? (y/n): ").strip().lower()
+                if save == 'y':
+                    filename = f"{reference_company.lower().replace(' ', '_')}_comparable_companies.csv"
+                    comparable_df.to_csv(filename, index=False)
+                    print(f"Results saved to: {filename}")
+            else:
+                print(f"No comparable companies found for '{reference_company}'")
+                print("Make sure the company has been ingested into the system.")
+        
+        except Exception as e:
+            print(f"Error during search: {e}")
+
+# Complete example with all features
+if __name__ == "__main__":
+    main()
+    
+    # Additional examples
     config = {
-        "azure_search_endpoint": os.getenv("AZURE_SEARCH_ENDPOINT"),
-        "azure_search_key": os.getenv("AZURE_SEARCH_KEY"),
-        "azure_openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "azure_openai_key": os.getenv("AZURE_OPENAI_KEY")
+        "azure_search_endpoint": "https://your-search-service.search.windows.net",
+        "azure_search_key": "your-search-admin-key",
+        "azure_openai_endpoint": "https://your-openai.openai.azure.com",
+        "azure_openai_key": "your-openai-key"
     }
     
     tool = Generic10KIngestionTool(**config)
     
-    print(f"Ingesting {pdf_file}...")
-    success = tool.ingest_10k_pdf(pdf_file)
+    # Example 1: Batch process PDFs from a directory
+    # batch_process_10k_documents(tool, "./10k_pdfs")
     
-    if success:
-        print(f"✓ Successfully ingested {pdf_file}")
-    else:
-        print(f"✗ Failed to ingest {pdf_file}")
-
-if __name__ == "__main__":
-    main()
-'''
+    # Example 2: Interactive search
+    # interactive_search_demo(tool)
     
-    with open("quick_ingest_028.py", "w") as f:
-        f.write(quick_script)
-    print("Created quick_ingest_028.py for single file processing")
-
-if __name__ == "__main__":
-    # Create helper files
-    create_requirements_file()
-    create_runner_script()
-    create_quick_ingest_script()
+    # Example 3: Generate detailed company analysis
+    # analysis = FinancialAnalysisReports(tool)
+    # google_analysis = analysis.generate_company_analysis("Alphabet")
+    # print(json.dumps(google_analysis, indent=2))
     
-    # Run main demo
-    main()
+    # Example 4: Direct comparison of specific companies
+    # comparison_df = analysis.compare_financial_metrics(["Google", "Microsoft", "Amazon"])
+    # print(comparison_df.to_string(index=False))
