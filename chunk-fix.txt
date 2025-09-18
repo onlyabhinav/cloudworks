@@ -1,0 +1,177 @@
+def chunk_document_by_sections(self, text: str, company_name: str, ticker: str, 
+                             chunk_size: int = 800, overlap: int = 100) -> List[Dict]:  # Much smaller chunks
+    """Enhanced document chunking with token-aware splitting"""
+    
+    section_patterns = [
+        (r'ITEM\s+1\.\s+BUSINESS', 'business_overview'),
+        (r'ITEM\s+1A\.\s+RISK\s+FACTORS', 'risk_factors'),
+        (r'ITEM\s+7\.\s+MANAGEMENT.S\s+DISCUSSION', 'financial_analysis'),
+        (r'ITEM\s+8\.\s+FINANCIAL\s+STATEMENTS', 'financial_statements'),
+        (r'consolidated\s+balance\s+sheets', 'balance_sheet'),
+        (r'consolidated\s+statements\s+of\s+income', 'income_statement'),
+        (r'consolidated\s+statements\s+of\s+cash\s+flows', 'cash_flow'),
+        (r'(?:revenues?\s+by|segment\s+information)', 'revenue_breakdown'),
+        (r'(?:competition|competitive\s+environment)', 'competitive_analysis'),
+        (r'(?:products\s+and\s+services)', 'products_services')
+    ]
+    
+    chunks = []
+    current_section = 'general'
+    
+    # Split into sentences first for better chunking
+    sentences = []
+    for paragraph in text.split('\n\n'):
+        if paragraph.strip():
+            # Split paragraph into sentences
+            para_sentences = [s.strip() for s in paragraph.split('.') if s.strip()]
+            sentences.extend(para_sentences)
+    
+    current_chunk = ""
+    chunk_id = 0
+    
+    for sentence in sentences:
+        # Check for section changes
+        for pattern, section_name in section_patterns:
+            if re.search(pattern, sentence, re.IGNORECASE):
+                current_section = section_name
+                break
+        
+        # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
+        estimated_tokens = len(current_chunk + sentence) // 4
+        
+        # If adding this sentence would exceed token limit, save current chunk
+        if estimated_tokens > chunk_size and current_chunk:
+            chunks.append({
+                'id': f"{ticker.lower()}_{chunk_id}",
+                'content': current_chunk.strip(),
+                'section_type': current_section,
+                'chunk_index': chunk_id,
+                'company_name': company_name,
+                'ticker': ticker,
+                'estimated_tokens': len(current_chunk) // 4
+            })
+            chunk_id += 1
+            
+            # Start new chunk with overlap
+            if overlap > 0:
+                # Keep last few sentences for context
+                sentences_in_chunk = current_chunk.split('.')
+                overlap_sentences = sentences_in_chunk[-3:] if len(sentences_in_chunk) > 3 else sentences_in_chunk
+                current_chunk = '. '.join(overlap_sentences) + '. ' + sentence
+            else:
+                current_chunk = sentence
+        else:
+            current_chunk += '. ' + sentence if current_chunk else sentence
+    
+    # Add final chunk
+    if current_chunk:
+        chunks.append({
+            'id': f"{ticker.lower()}_{chunk_id}",
+            'content': current_chunk.strip(),
+            'section_type': current_section,
+            'chunk_index': chunk_id,
+            'company_name': company_name,
+            'ticker': ticker,
+            'estimated_tokens': len(current_chunk) // 4
+        })
+    
+    # Log chunking statistics
+    total_tokens = sum(chunk.get('estimated_tokens', 0) for chunk in chunks)
+    avg_tokens = total_tokens / len(chunks) if chunks else 0
+    max_tokens = max(chunk.get('estimated_tokens', 0) for chunk in chunks) if chunks else 0
+    
+    print(f"Chunking complete: {len(chunks)} chunks created")
+    print(f"Average tokens per chunk: {avg_tokens:.0f}")
+    print(f"Maximum tokens in any chunk: {max_tokens}")
+    print(f"Total estimated tokens: {total_tokens}")
+    
+    return chunks
+
+def generate_embeddings_safe(self, texts: List[str]) -> List[List[float]]:
+    """Token-safe embedding generation"""
+    
+    embeddings = []
+    batch_size = 8  # Smaller batches to be safe
+    max_tokens = 8000  # Safe limit below 8192
+    
+    print(f"Processing {len(texts)} text chunks for embedding generation...")
+    
+    for i, text in enumerate(texts):
+        # Estimate tokens (1 token ≈ 4 characters)
+        estimated_tokens = len(text) // 4
+        
+        if estimated_tokens > max_tokens:
+            print(f"Warning: Text {i+1} has ~{estimated_tokens} tokens, truncating to {max_tokens}")
+            # Truncate to safe length
+            safe_length = max_tokens * 4  # Convert back to characters
+            text = text[:safe_length]
+        
+        try:
+            # Process one at a time to isolate any problematic texts
+            response = openai.Embedding.create(
+                input=[text],
+                engine=self.embedding_model
+            )
+            
+            embedding = response['data'][0]['embedding']
+            embeddings.append(embedding)
+            
+            if (i + 1) % 10 == 0:  # Progress update every 10 items
+                print(f"Processed {i+1}/{len(texts)} embeddings")
+                
+        except Exception as e:
+            print(f"Error with text {i+1} (estimated {estimated_tokens} tokens): {e}")
+            print(f"Text preview: {text[:200]}...")
+            
+            # Try with more aggressive truncation
+            try:
+                shorter_text = text[:2000]  # Very conservative limit
+                response = openai.Embedding.create(
+                    input=[shorter_text],
+                    engine=self.embedding_model
+                )
+                embedding = response['data'][0]['embedding']
+                embeddings.append(embedding)
+                print(f"Success with shorter text for item {i+1}")
+            except:
+                print(f"Complete failure for text {i+1}, using zero embedding")
+                embeddings.append([0.0] * 1536)
+    
+    print(f"Embedding generation complete: {len(embeddings)} embeddings generated")
+    return embeddings
+
+# Alternative: Even more aggressive chunking for very large documents
+def chunk_document_aggressive(self, text: str, company_name: str, ticker: str) -> List[Dict]:
+    """Ultra-conservative chunking for large documents"""
+    
+    chunks = []
+    chunk_size = 500  # Very small chunks
+    overlap = 50
+    
+    # Simple sliding window approach
+    words = text.split()
+    
+    for i in range(0, len(words), chunk_size - overlap):
+        chunk_words = words[i:i + chunk_size]
+        chunk_text = ' '.join(chunk_words)
+        
+        # Skip very short chunks
+        if len(chunk_text.strip()) < 100:
+            continue
+            
+        chunks.append({
+            'id': f"{ticker.lower()}_{len(chunks)}",
+            'content': chunk_text,
+            'section_type': 'general',
+            'chunk_index': len(chunks),
+            'company_name': company_name,
+            'ticker': ticker,
+            'word_count': len(chunk_words),
+            'estimated_tokens': len(chunk_text) // 4
+        })
+    
+    print(f"Aggressive chunking: {len(chunks)} small chunks created")
+    max_tokens = max(chunk['estimated_tokens'] for chunk in chunks) if chunks else 0
+    print(f"Maximum tokens per chunk: {max_tokens}")
+    
+    return chunks
