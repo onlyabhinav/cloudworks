@@ -1,0 +1,237 @@
+def extract_enhanced_financial_metrics(self, text: str, company_name: str, ticker: str) -> FinancialMetrics:
+    """Enhanced financial metrics extraction with better patterns and debugging"""
+    
+    metrics = FinancialMetrics(company_name=company_name, ticker=ticker)
+    
+    # Industry classification
+    industry, sector = self.classify_industry(text)
+    metrics.industry = industry
+    metrics.sector = sector
+    
+    # Filing year extraction
+    year_patterns = [
+        r'(?:fiscal year|year ended).*?december 31,?\s*(\d{4})',
+        r'for the year ended.*?(\d{4})',
+        r'annual report.*?(\d{4})',
+        r'form 10-k.*?(\d{4})'
+    ]
+    
+    for pattern in year_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            metrics.filing_year = int(match.group(1))
+            break
+    
+    # Enhanced revenue extraction with more patterns
+    revenue_patterns = [
+        # Standard patterns
+        r'(?:total\s+)?(?:net\s+)?revenues?\s*(?:\(in millions\))?\s*[\$\s]*([\d,]+\.?\d*)',
+        r'(?:net\s+)?sales\s*(?:\(in millions\))?\s*[\$\s]*([\d,]+\.?\d*)',
+        r'consolidated revenues?\s*[\$\s]*([\d,]+\.?\d*)',
+        
+        # Table format patterns
+        r'revenues?\s*[\$\s]*([\d,]+\.?\d*)\s*million',
+        r'total revenues?\s*[\$\s]*([\d,]+\.?\d*)',
+        r'revenues?\s+(\d{1,3}(?:,\d{3})*\.?\d*)',
+        
+        # Financial statement patterns
+        r'revenues?[:\s]*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?',
+        r'net revenues?[:\s]*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?',
+        
+        # Multi-line patterns
+        r'revenues?\s*\n.*?\$?\s*([\d,]+\.?\d*)',
+        r'total.*?revenues?\s*\$?\s*([\d,]+\.?\d*)'
+    ]
+    
+    # Enhanced operating income patterns
+    operating_patterns = [
+        r'(?:income from operations|operating income)\s*[\$\s]*([\d,]+\.?\d*)',
+        r'operating earnings\s*[\$\s]*([\d,]+\.?\d*)',
+        r'operating income\s*[\$\s]*([\d,]+\.?\d*)\s*(?:million|billion)?',
+        r'income from operations\s*[\$\s]*([\d,]+\.?\d*)',
+        r'operating income[:\s]*\$?\s*([\d,]+\.?\d*)',
+        r'operating.*?income\s*\$?\s*([\d,]+\.?\d*)'
+    ]
+    
+    # Enhanced net income patterns
+    net_income_patterns = [
+        r'net (?:income|earnings)\s*[\$\s]*([\d,]+\.?\d*)',
+        r'net income\s*[\$\s]*([\d,]+\.?\d*)\s*(?:million|billion)?',
+        r'net income[:\s]*\$?\s*([\d,]+\.?\d*)',
+        r'net earnings[:\s]*\$?\s*([\d,]+\.?\d*)',
+        r'(?:^|\n)net income\s*\$?\s*([\d,]+\.?\d*)',
+        r'consolidated net income\s*\$?\s*([\d,]+\.?\d*)'
+    ]
+    
+    # Debug: Show what patterns we're looking for
+    print(f"Searching for financial data in {len(text)} characters of text...")
+    
+    # Extract revenue with debugging
+    revenue_value = self._extract_financial_value_debug(text, revenue_patterns, "Revenue")
+    if revenue_value:
+        metrics.revenue = revenue_value
+    
+    # Extract operating income with debugging
+    operating_value = self._extract_financial_value_debug(text, operating_patterns, "Operating Income")
+    if operating_value:
+        metrics.operating_income = operating_value
+    
+    # Extract net income with debugging
+    net_income_value = self._extract_financial_value_debug(text, net_income_patterns, "Net Income")
+    if net_income_value:
+        metrics.net_income = net_income_value
+    
+    # Additional financial metrics with similar debugging
+    assets_patterns = [
+        r'total assets\s*[\$\s]*([\d,]+\.?\d*)',
+        r'total assets[:\s]*\$?\s*([\d,]+\.?\d*)',
+        r'assets\s*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?'
+    ]
+    assets_value = self._extract_financial_value_debug(text, assets_patterns, "Total Assets")
+    if assets_value:
+        metrics.total_assets = assets_value
+    
+    # Cash patterns
+    cash_patterns = [
+        r'cash and (?:cash equivalents|equivalents)\s*[\$\s]*([\d,]+\.?\d*)',
+        r'cash and equivalents[:\s]*\$?\s*([\d,]+\.?\d*)',
+        r'cash\s*\$?\s*([\d,]+\.?\d*)\s*(?:million|billion)?'
+    ]
+    cash_value = self._extract_financial_value_debug(text, cash_patterns, "Cash and Equivalents")
+    if cash_value:
+        metrics.cash_and_equivalents = cash_value
+    
+    # Employee count with better patterns
+    employee_patterns = [
+        r'(?:approximately\s+)?(\d{1,3}(?:,\d{3})*)\s+(?:full-time\s+)?employees',
+        r'employees?[:\s]*(?:approximately\s+)?(\d{1,3}(?:,\d{3})*)',
+        r'workforce\s+of\s+(?:approximately\s+)?(\d{1,3}(?:,\d{3})*)',
+        r'(\d{1,3}(?:,\d{3})*)\s+employees',
+        r'employ(?:s|ed)\s+(?:approximately\s+)?(\d{1,3}(?:,\d{3})*)'
+    ]
+    
+    for pattern in employee_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            try:
+                employees_count = int(match.group(1).replace(',', ''))
+                # Sanity check for reasonable employee count
+                if 100 <= employees_count <= 10_000_000:
+                    metrics.employees = employees_count
+                    print(f"Found employees: {employees_count:,}")
+                    break
+            except (ValueError, TypeError):
+                continue
+    
+    # Calculate derived metrics
+    metrics.calculate_ratios()
+    
+    return metrics
+
+def _extract_financial_value_debug(self, text: str, patterns: List[str], metric_name: str) -> Optional[float]:
+    """Enhanced financial value extraction with debugging output"""
+    
+    print(f"\nSearching for {metric_name}...")
+    
+    for i, pattern in enumerate(patterns):
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        
+        if matches:
+            print(f"  Pattern {i+1} found {len(matches)} matches: {matches[:3]}...")  # Show first 3 matches
+            
+            for match in matches:
+                if isinstance(match, tuple):
+                    number_str = match[0]
+                else:
+                    number_str = match
+                
+                try:
+                    # Clean the number string
+                    clean_number = re.sub(r'[^\d.,]', '', number_str)
+                    clean_number = clean_number.replace(',', '')
+                    
+                    if not clean_number or clean_number in ['.', '']:
+                        continue
+                        
+                    value = float(clean_number)
+                    
+                    # Look for scale indicators in surrounding text
+                    match_pos = text.find(number_str)
+                    if match_pos != -1:
+                        context = text[max(0, match_pos - 100):match_pos + 100].lower()
+                        
+                        # Determine scale
+                        if 'billion' in context or 'billions' in context:
+                            value *= 1_000_000_000
+                            scale = "billion"
+                        elif 'million' in context or 'millions' in context:
+                            value *= 1_000_000
+                            scale = "million"
+                        elif 'thousand' in context or 'thousands' in context:
+                            value *= 1_000
+                            scale = "thousand"
+                        else:
+                            # Try to guess scale based on magnitude
+                            if value < 10000:  # Likely in millions or billions
+                                value *= 1_000_000  # Assume millions
+                                scale = "assumed million"
+                            else:
+                                scale = "actual"
+                    
+                    # Validation: reasonable business values
+                    if 1_000 <= value <= 10_000_000_000_000:  # $1K to $10T
+                        print(f"  ✓ Found {metric_name}: ${value:,.0f} ({scale})")
+                        print(f"    Context: ...{context[40:80]}...")
+                        return value
+                    else:
+                        print(f"  ✗ Value ${value:,.0f} outside reasonable range")
+                        
+                except (ValueError, TypeError) as e:
+                    print(f"  ✗ Could not parse '{number_str}': {e}")
+                    continue
+        else:
+            print(f"  Pattern {i+1}: No matches")
+    
+    print(f"  ✗ No valid {metric_name} found")
+    return None
+
+def debug_financial_extraction(self, text: str, company_name: str, ticker: str):
+    """Debug method to show what financial data is actually in the text"""
+    
+    print(f"\n{'='*60}")
+    print(f"DEBUGGING FINANCIAL EXTRACTION FOR {company_name}")
+    print(f"{'='*60}")
+    
+    # Show text sample where financial data might be
+    financial_keywords = ['revenue', 'income', 'earnings', 'sales', 'assets', 'million', 'billion', '$']
+    
+    print("\nSearching for financial statement sections...")
+    lines = text.split('\n')
+    financial_lines = []
+    
+    for i, line in enumerate(lines):
+        line_lower = line.lower()
+        if any(keyword in line_lower for keyword in financial_keywords):
+            if len(line.strip()) > 10 and any(char.isdigit() for char in line):
+                financial_lines.append((i, line.strip()))
+    
+    # Show the most promising lines
+    print(f"\nFound {len(financial_lines)} lines with financial keywords and numbers:")
+    for line_num, line in financial_lines[:10]:  # Show first 10
+        print(f"  Line {line_num}: {line[:100]}...")
+    
+    # Look for financial statement tables
+    print(f"\nSearching for table-like structures...")
+    table_patterns = [
+        r'revenues?\s*\$?\s*[\d,]+',
+        r'income\s*\$?\s*[\d,]+',
+        r'total\s*\$?\s*[\d,]+',
+        r'\$\s*[\d,]+\s*(?:million|billion)?'
+    ]
+    
+    for pattern in table_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            print(f"  Pattern '{pattern}' found: {matches[:5]}...")
+    
+    print(f"\n{'='*60}")
