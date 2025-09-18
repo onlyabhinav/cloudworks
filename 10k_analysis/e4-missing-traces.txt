@@ -1,0 +1,572 @@
+import os
+import re
+import json
+import PyPDF2
+import pdfplumber
+from typing import Dict, List, Optional, Tuple, Any
+from dataclasses import dataclass
+
+@dataclass
+class DocumentChunk:
+    """Enhanced chunk with page traceability"""
+    id: str
+    content: str
+    company_name: str
+    ticker: str
+    section_type: str
+    chunk_index: int
+    page_number: int  # NEW: Original PDF page number
+    page_start: int   # NEW: Starting page if chunk spans multiple pages
+    page_end: int     # NEW: Ending page if chunk spans multiple pages
+    char_start: int   # NEW: Character position in original text
+    char_end: int     # NEW: Character end position
+    source_file: str  # NEW: Original PDF filename
+    extraction_method: str  # NEW: PyPDF2 vs pdfplumber
+    estimated_tokens: int = 0
+
+class EnhancedPDFProcessor:
+    """Enhanced PDF processor with page-level traceability"""
+    
+    def extract_text_with_page_mapping(self, pdf_path: str) -> Tuple[str, List[Dict]]:
+        """Extract text while maintaining page number mapping"""
+        
+        full_text = ""
+        page_mappings = []  # Track which characters came from which pages
+        current_position = 0
+        
+        print(f"Extracting text from {pdf_path} with page tracking...")
+        
+        # Try PyPDF2 first with page tracking
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                total_pages = len(pdf_reader.pages)
+                print(f"PDF has {total_pages} pages")
+                
+                for page_num, page in enumerate(pdf_reader.pages, 1):
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            page_start_pos = current_position
+                            full_text += page_text + "\n"
+                            page_end_pos = current_position + len(page_text) + 1
+                            
+                            page_mappings.append({
+                                'page_number': page_num,
+                                'char_start': page_start_pos,
+                                'char_end': page_end_pos,
+                                'text_length': len(page_text),
+                                'extraction_method': 'PyPDF2'
+                            })
+                            
+                            current_position = page_end_pos
+                            
+                        if page_num % 10 == 0:
+                            print(f"Processed {page_num}/{total_pages} pages...")
+                            
+                    except Exception as e:
+                        print(f"Error extracting page {page_num}: {e}")
+                        # Add empty mapping for failed pages
+                        page_mappings.append({
+                            'page_number': page_num,
+                            'char_start': current_position,
+                            'char_end': current_position,
+                            'text_length': 0,
+                            'extraction_method': 'PyPDF2_failed'
+                        })
+                        
+        except Exception as e:
+            print(f"PyPDF2 extraction failed: {e}")
+            return self._fallback_extraction_with_pages(pdf_path)
+        
+        # If PyPDF2 produced very little text, try pdfplumber
+        if len(full_text.strip()) < 1000:
+            print("PyPDF2 extracted minimal text, trying pdfplumber...")
+            return self._fallback_extraction_with_pages(pdf_path)
+        
+        print(f"Successfully extracted {len(full_text)} characters from {len(page_mappings)} pages")
+        return full_text, page_mappings
+    
+    def _fallback_extraction_with_pages(self, pdf_path: str) -> Tuple[str, List[Dict]]:
+        """Fallback extraction using pdfplumber with page tracking"""
+        
+        full_text = ""
+        page_mappings = []
+        current_position = 0
+        
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                total_pages = len(pdf.pages)
+                print(f"Using pdfplumber for {total_pages} pages...")
+                
+                for page_num, page in enumerate(pdf.pages, 1):
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            page_start_pos = current_position
+                            full_text += page_text + "\n"
+                            page_end_pos = current_position + len(page_text) + 1
+                            
+                            page_mappings.append({
+                                'page_number': page_num,
+                                'char_start': page_start_pos,
+                                'char_end': page_end_pos,
+                                'text_length': len(page_text),
+                                'extraction_method': 'pdfplumber'
+                            })
+                            
+                            current_position = page_end_pos
+                            
+                    except Exception as e:
+                        print(f"pdfplumber error on page {page_num}: {e}")
+                        page_mappings.append({
+                            'page_number': page_num,
+                            'char_start': current_position,
+                            'char_end': current_position,
+                            'text_length': 0,
+                            'extraction_method': 'pdfplumber_failed'
+                        })
+                        
+        except Exception as e:
+            print(f"pdfplumber extraction failed: {e}")
+            # Return minimal mapping
+            return full_text, [{'page_number': 1, 'char_start': 0, 'char_end': len(full_text), 
+                              'text_length': len(full_text), 'extraction_method': 'fallback'}]
+        
+        return full_text, page_mappings
+    
+    def find_page_for_position(self, char_position: int, page_mappings: List[Dict]) -> Dict:
+        """Find which page contains a specific character position"""
+        
+        for mapping in page_mappings:
+            if mapping['char_start'] <= char_position <= mapping['char_end']:
+                return mapping
+        
+        # If not found, return the closest page
+        closest_page = min(page_mappings, 
+                          key=lambda x: abs(x['char_start'] - char_position))
+        return closest_page
+    
+    def chunk_document_with_page_tracking(self, text: str, page_mappings: List[Dict], 
+                                        company_name: str, ticker: str, source_file: str,
+                                        chunk_size: int = 800, overlap: int = 100) -> List[DocumentChunk]:
+        """Create chunks while tracking original page numbers"""
+        
+        chunks = []
+        current_position = 0
+        chunk_id = 0
+        
+        # Section detection patterns
+        section_patterns = [
+            (r'ITEM\s+1\.\s+BUSINESS', 'business_overview'),
+            (r'ITEM\s+1A\.\s+RISK\s+FACTORS', 'risk_factors'),
+            (r'ITEM\s+7\.\s+MANAGEMENT.S\s+DISCUSSION', 'financial_analysis'),
+            (r'ITEM\s+8\.\s+FINANCIAL\s+STATEMENTS', 'financial_statements'),
+            (r'consolidated\s+balance\s+sheets', 'balance_sheet'),
+            (r'consolidated\s+statements\s+of\s+income', 'income_statement'),
+        ]
+        
+        # Split into sentences for better chunking
+        sentences = []
+        sentence_positions = []
+        
+        current_pos = 0
+        for paragraph in text.split('\n\n'):
+            if paragraph.strip():
+                para_sentences = [s.strip() + '.' for s in paragraph.split('.') if s.strip()]
+                for sentence in para_sentences:
+                    sentences.append(sentence)
+                    sentence_positions.append(current_pos)
+                    current_pos += len(sentence) + 1
+        
+        current_chunk = ""
+        current_section = 'general'
+        chunk_start_pos = 0
+        
+        for i, sentence in enumerate(sentences):
+            sentence_pos = sentence_positions[i]
+            
+            # Check for section changes
+            for pattern, section_name in section_patterns:
+                if re.search(pattern, sentence, re.IGNORECASE):
+                    current_section = section_name
+                    break
+            
+            # Check if adding this sentence would exceed chunk size
+            if len(current_chunk + sentence) > chunk_size and current_chunk:
+                
+                # Create chunk with page information
+                chunk_end_pos = sentence_positions[i-1] + len(sentences[i-1]) if i > 0 else chunk_start_pos
+                
+                # Find page numbers for this chunk
+                start_page_info = self.find_page_for_position(chunk_start_pos, page_mappings)
+                end_page_info = self.find_page_for_position(chunk_end_pos, page_mappings)
+                
+                chunk = DocumentChunk(
+                    id=f"{ticker.lower()}_{chunk_id}",
+                    content=current_chunk.strip(),
+                    company_name=company_name,
+                    ticker=ticker,
+                    section_type=current_section,
+                    chunk_index=chunk_id,
+                    page_number=start_page_info['page_number'],  # Primary page
+                    page_start=start_page_info['page_number'],
+                    page_end=end_page_info['page_number'],
+                    char_start=chunk_start_pos,
+                    char_end=chunk_end_pos,
+                    source_file=source_file,
+                    extraction_method=start_page_info['extraction_method'],
+                    estimated_tokens=len(current_chunk) // 4
+                )
+                
+                chunks.append(chunk)
+                chunk_id += 1
+                
+                # Start new chunk with overlap
+                if overlap > 0:
+                    overlap_sentences = sentences[max(0, i-3):i]
+                    current_chunk = ' '.join(overlap_sentences) + ' ' + sentence
+                    chunk_start_pos = sentence_positions[max(0, i-3)]
+                else:
+                    current_chunk = sentence
+                    chunk_start_pos = sentence_pos
+            else:
+                if not current_chunk:
+                    chunk_start_pos = sentence_pos
+                current_chunk += ' ' + sentence if current_chunk else sentence
+        
+        # Add final chunk
+        if current_chunk:
+            final_pos = len(text)
+            start_page_info = self.find_page_for_position(chunk_start_pos, page_mappings)
+            end_page_info = self.find_page_for_position(final_pos, page_mappings)
+            
+            chunk = DocumentChunk(
+                id=f"{ticker.lower()}_{chunk_id}",
+                content=current_chunk.strip(),
+                company_name=company_name,
+                ticker=ticker,
+                section_type=current_section,
+                chunk_index=chunk_id,
+                page_number=start_page_info['page_number'],
+                page_start=start_page_info['page_number'],
+                page_end=end_page_info['page_number'],
+                char_start=chunk_start_pos,
+                char_end=final_pos,
+                source_file=source_file,
+                extraction_method=start_page_info['extraction_method'],
+                estimated_tokens=len(current_chunk) // 4
+            )
+            chunks.append(chunk)
+        
+        # Print chunking summary with page information
+        print(f"Created {len(chunks)} chunks with page tracking:")
+        for i, chunk in enumerate(chunks[:5]):  # Show first 5 chunks
+            page_info = f"Page {chunk.page_start}" if chunk.page_start == chunk.page_end else f"Pages {chunk.page_start}-{chunk.page_end}"
+            print(f"  Chunk {i+1}: {page_info}, {chunk.estimated_tokens} tokens, Section: {chunk.section_type}")
+        
+        if len(chunks) > 5:
+            print(f"  ... and {len(chunks)-5} more chunks")
+        
+        return chunks
+
+# Updated search index schema to include page information
+def create_search_index_with_page_tracking(self):
+    """Create search index with page number fields"""
+    fields = [
+        # Existing fields...
+        SimpleField(name="id", type=SearchFieldDataType.String, key=True),
+        SearchableField(name="company_name", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="ticker", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="content", type=SearchFieldDataType.String),
+        
+        # NEW: Page tracking fields
+        SimpleField(name="page_number", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SimpleField(name="page_start", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SimpleField(name="page_end", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SimpleField(name="char_start", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SimpleField(name="char_end", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SearchableField(name="source_file", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="extraction_method", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        
+        # Vector field
+        SearchField(
+            name="content_vector",
+            type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+            searchable=True,
+            vector_search_dimensions=1536,
+            vector_search_profile_name="vector-profile"
+        ),
+        
+        # All your existing financial fields...
+        SimpleField(name="revenue", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        # ... (keep all other existing fields)
+    ]
+    
+    # Rest of index creation code remains the same...
+
+def prepare_documents_with_page_info(self, chunks: List[DocumentChunk], embeddings: List, metrics) -> List[Dict]:
+    """Prepare documents including page number information"""
+    
+    documents = []
+    ingestion_time = datetime.utcnow().isoformat() + "Z"
+    
+    for chunk, embedding in zip(chunks, embeddings):
+        document = {
+            "id": chunk.id,
+            "company_name": chunk.company_name,
+            "ticker": chunk.ticker,
+            "section_type": chunk.section_type,
+            "content": chunk.content,
+            "content_vector": embedding,
+            "chunk_index": chunk.chunk_index,
+            
+            # Page tracking information
+            "page_number": chunk.page_number,
+            "page_start": chunk.page_start,
+            "page_end": chunk.page_end,
+            "char_start": chunk.char_start,
+            "char_end": chunk.char_end,
+            "source_file": chunk.source_file,
+            "extraction_method": chunk.extraction_method,
+            
+            "estimated_tokens": chunk.estimated_tokens,
+            "ingestion_timestamp": ingestion_time
+        }
+        
+        # Add financial metrics
+        metrics_dict = metrics.to_dict()
+        for key, value in metrics_dict.items():
+            if key not in document and value is not None:
+                document[key] = value
+        
+        documents.append(document)
+    
+    return documents
+
+# Enhanced search with page references
+def search_with_page_references(self, query: str, company_filter: str = None, top_results: int = 5) -> pd.DataFrame:
+    """Search and return results with page number references"""
+    
+    search_client = SearchClient(
+        endpoint=self.search_client._endpoint,
+        index_name=self.index_name,
+        credential=self.search_client._credential
+    )
+    
+    # Build filter
+    filter_expr = None
+    if company_filter:
+        filter_expr = f"company_name eq '{company_filter}' or ticker eq '{company_filter}'"
+    
+    # Generate query embedding
+    try:
+        query_response = openai.Embedding.create(
+            input=[query],
+            engine=self.embedding_model
+        )
+        query_embedding = query_response['data'][0]['embedding']
+    except:
+        query_embedding = [0.0] * 1536
+    
+    # Search with vector similarity
+    results = search_client.search(
+        search_text=query,
+        vector_queries=[
+            VectorizedQuery(
+                vector=query_embedding,
+                k_nearest_neighbors=top_results * 2,
+                fields="content_vector"
+            )
+        ],
+        filter=filter_expr,
+        select="company_name,ticker,content,page_number,page_start,page_end,source_file,section_type,revenue,employees",
+        top=top_results
+    )
+    
+    # Format results with page references
+    search_results = []
+    for result in results:
+        page_ref = f"Page {result['page_start']}" if result['page_start'] == result['page_end'] else f"Pages {result['page_start']}-{result['page_end']}"
+        
+        search_results.append({
+            'Company': result.get('company_name', 'N/A'),
+            'Ticker': result.get('ticker', 'N/A'),
+            'Content Preview': result.get('content', '')[:200] + "...",
+            'Page Reference': page_ref,
+            'Source File': result.get('source_file', 'N/A'),
+            'Section': result.get('section_type', 'N/A'),
+            'Revenue ($M)': round(result.get('revenue', 0) / 1_000_000, 1) if result.get('revenue') else 'N/A'
+        })
+    
+    return pd.DataFrame(search_results)
+
+
+    ##########################
+
+    def ingest_10k_pdf_with_page_tracking(self, pdf_path: str) -> bool:
+    """Enhanced ingestion pipeline with page number traceability"""
+    
+    print(f"Processing 10-K PDF with page tracking: {pdf_path}")
+    
+    try:
+        # Initialize PDF processor
+        pdf_processor = EnhancedPDFProcessor()
+        
+        # Extract text with page mapping
+        print("Extracting text with page number tracking...")
+        text, page_mappings = pdf_processor.extract_text_with_page_mapping(pdf_path)
+        
+        if len(text.strip()) < 1000:
+            print("Warning: Extracted text is very short")
+            return False
+        
+        # Extract company info
+        print("Extracting company information...")
+        company_name, ticker = self.extract_company_info(text)
+        print(f"Company: {company_name} ({ticker})")
+        
+        # Extract financial metrics
+        print("Extracting financial metrics...")
+        metrics = self.extract_enhanced_financial_metrics(text, company_name, ticker)
+        
+        # Display key metrics
+        print(f"Key Financial Metrics for {metrics.company_name}:")
+        if metrics.revenue:
+            print(f"  Revenue: ${metrics.revenue/1_000_000:,.0f}M")
+        if metrics.net_income:
+            print(f"  Net Income: ${metrics.net_income/1_000_000:,.0f}M")
+        if metrics.employees:
+            print(f"  Employees: {metrics.employees:,}")
+        if metrics.operating_margin:
+            print(f"  Operating Margin: {metrics.operating_margin:.1f}%")
+        
+        # Chunk document with page tracking
+        print("Chunking document with page number tracking...")
+        source_filename = os.path.basename(pdf_path)
+        chunks = pdf_processor.chunk_document_with_page_tracking(
+            text, page_mappings, company_name, ticker, source_filename
+        )
+        print(f"Created {len(chunks)} chunks with page references")
+        
+        # Generate embeddings
+        print("Generating embeddings...")
+        chunk_texts = [chunk.content for chunk in chunks]
+        embeddings = self.generate_embeddings_safe(chunk_texts)
+        
+        # Prepare documents with page information
+        print("Preparing documents with page references...")
+        documents = self.prepare_documents_with_page_info(chunks, embeddings, metrics)
+        
+        # Upload to Azure Search
+        print("Uploading to Azure Search with page tracking...")
+        search_client = SearchClient(
+            endpoint=self.search_client._endpoint,
+            index_name=self.index_name,
+            credential=self.search_client._credential
+        )
+        
+        batch_size = 50
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            try:
+                result = search_client.upload_documents(batch)
+                successful = sum(1 for item in result if item.succeeded)
+                print(f"Uploaded batch {i//batch_size + 1}/{(len(documents) + batch_size - 1)//batch_size}: {successful}/{len(batch)} successful")
+                
+            except Exception as e:
+                print(f"Error uploading batch {i//batch_size + 1}: {e}")
+                return False
+        
+        print(f"Successfully ingested {company_name}: {len(documents)} chunks with page references")
+        return True
+        
+    except Exception as e:
+        print(f"Error in enhanced ingestion pipeline: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+# Example usage with page-aware search
+def demo_page_aware_search(self):
+    """Demonstrate search with page number references"""
+    
+    # Search for revenue information
+    print("\n" + "="*60)
+    print("DEMO: SEARCH WITH PAGE REFERENCES")
+    print("="*60)
+    
+    query = "revenue growth and financial performance"
+    results_df = self.search_with_page_references(query, top_results=5)
+    
+    if not results_df.empty:
+        print(f"\nSearch results for: '{query}'")
+        print(results_df.to_string(index=False))
+        
+        print(f"\nPage References Summary:")
+        for _, row in results_df.iterrows():
+            print(f"  {row['Company']} ({row['Ticker']}): {row['Page Reference']} in {row['Source File']}")
+    else:
+        print("No results found")
+
+# Enhanced comparable company analysis with page references
+def find_comparable_companies_with_sources(self, reference_company: str, top_companies: int = 10) -> pd.DataFrame:
+    """Find comparable companies and show source page references"""
+    
+    # Your existing comparable company logic...
+    # But now include page information in results
+    
+    search_client = SearchClient(
+        endpoint=self.search_client._endpoint,
+        index_name=self.index_name,
+        credential=self.search_client._credential
+    )
+    
+    # Find reference company
+    ref_query = f"company_name:{reference_company} OR ticker:{reference_company}"
+    ref_results = list(search_client.search(
+        search_text=ref_query,
+        select="company_name,ticker,sector,revenue,employees,page_number,source_file",
+        top=5
+    ))
+    
+    if not ref_results:
+        print(f"Reference company '{reference_company}' not found")
+        return pd.DataFrame()
+    
+    ref_company = ref_results[0]
+    print(f"Reference: {ref_company['company_name']} (found on page {ref_company.get('page_number', 'unknown')})")
+    
+    # Rest of your comparable company logic...
+    # Include page references in final output
+    
+    # Example enhanced output format:
+    comparison_data = []
+    for result in search_results:  # Your existing search results
+        comparison_data.append({
+            'Company Name': result.get('company_name'),
+            'Ticker': result.get('ticker'),
+            'Revenue ($B)': round(result.get('revenue', 0) / 1_000_000_000, 2),
+            'Employees': f"{result.get('employees', 0):,}",
+            'Source Page': result.get('page_number', 'N/A'),
+            'Source File': result.get('source_file', 'N/A'),
+            'Data Section': result.get('section_type', 'N/A')
+        })
+    
+    return pd.DataFrame(comparison_data)
+
+
+    ########################
+
+
+    
