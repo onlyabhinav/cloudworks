@@ -1,0 +1,324 @@
+def create_enhanced_search_index(self):
+    """Create enhanced search index with ALL financial metrics fields"""
+    fields = [
+        # Core document fields
+        SimpleField(name="id", type=SearchFieldDataType.String, key=True),
+        SearchableField(name="company_name", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="ticker", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SimpleField(name="filing_year", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True, facetable=True),
+        SearchableField(name="section_type", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="industry", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="sector", type=SearchFieldDataType.String, 
+                      filterable=True, facetable=True),
+        SearchableField(name="content", type=SearchFieldDataType.String),
+        
+        # Vector field for semantic search
+        SearchField(
+            name="content_vector",
+            type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+            searchable=True,
+            vector_search_dimensions=1536,
+            vector_search_profile_name="vector-profile"
+        ),
+        
+        # Core financial metrics - ADD ALL MISSING FIELDS
+        SimpleField(name="revenue", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="revenue_growth", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="gross_profit", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),  # THIS WAS MISSING
+        SimpleField(name="operating_income", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="net_income", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="total_assets", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="total_liabilities", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="shareholders_equity", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="cash_and_equivalents", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="employees", type=SearchFieldDataType.Int64, 
+                   filterable=True, sortable=True),
+        
+        # Financial ratios
+        SimpleField(name="gross_margin", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="operating_margin", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="net_margin", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="roe", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="roa", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="revenue_per_employee", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="debt_to_equity", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="current_ratio", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        
+        # Valuation metrics
+        SimpleField(name="market_cap", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="enterprise_value", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="ev_revenue", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="ev_ebitda", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="price_to_earnings", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        SimpleField(name="price_to_book", type=SearchFieldDataType.Double, 
+                   filterable=True, sortable=True),
+        
+        # Metadata
+        SimpleField(name="chunk_index", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SimpleField(name="ingestion_timestamp", type=SearchFieldDataType.DateTimeOffset, 
+                   filterable=True, sortable=True),
+        
+        # Additional metadata fields
+        SimpleField(name="estimated_tokens", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True),
+        SimpleField(name="word_count", type=SearchFieldDataType.Int32, 
+                   filterable=True, sortable=True)
+    ]
+    
+    # Enhanced vector search configuration
+    vector_search = VectorSearch(
+        profiles=[
+            VectorSearchProfile(
+                name="vector-profile",
+                algorithm_configuration_name="hnsw-config"
+            )
+        ],
+        algorithms=[
+            HnswAlgorithmConfiguration(
+                name="hnsw-config",
+                parameters={
+                    "m": 4,
+                    "efConstruction": 400,
+                    "efSearch": 500,
+                    "metric": "cosine"
+                }
+            )
+        ]
+    )
+    
+    index = SearchIndex(
+        name=self.index_name,
+        fields=fields,
+        vector_search=vector_search
+    )
+    
+    try:
+        # Delete existing index if it exists
+        try:
+            self.search_client.delete_index(self.index_name)
+            print(f"Deleted existing index: {self.index_name}")
+            import time
+            time.sleep(5)  # Wait for deletion to complete
+        except Exception as delete_error:
+            print(f"Index deletion note: {delete_error}")
+        
+        result = self.search_client.create_index(index)
+        print(f"Created enhanced search index: {result.name}")
+        print(f"Index has {len(fields)} fields defined")
+        return result
+        
+    except Exception as e:
+        print(f"Error creating search index: {e}")
+        print("Available fields in your FinancialMetrics that need to be in the schema:")
+        from dataclasses import fields as dataclass_fields
+        financial_fields = [f.name for f in dataclass_fields(FinancialMetrics)]
+        print(financial_fields)
+        return None
+
+# Alternative: Filter out unknown fields before uploading
+def prepare_documents_safely(self, chunks, embeddings, metrics):
+    """Prepare documents with only fields that exist in the schema"""
+    
+    # Define the exact fields that exist in your search index
+    allowed_fields = {
+        'id', 'company_name', 'ticker', 'filing_year', 'section_type', 
+        'industry', 'sector', 'content', 'content_vector', 'chunk_index',
+        'ingestion_timestamp', 'estimated_tokens', 'word_count',
+        # Financial metrics
+        'revenue', 'revenue_growth', 'gross_profit', 'operating_income', 
+        'net_income', 'total_assets', 'total_liabilities', 'shareholders_equity',
+        'cash_and_equivalents', 'employees',
+        # Ratios
+        'gross_margin', 'operating_margin', 'net_margin', 'roe', 'roa',
+        'revenue_per_employee', 'debt_to_equity', 'current_ratio',
+        # Valuation
+        'market_cap', 'enterprise_value', 'ev_revenue', 'ev_ebitda',
+        'price_to_earnings', 'price_to_book'
+    }
+    
+    documents = []
+    ingestion_time = datetime.utcnow().isoformat() + "Z"
+    
+    for chunk, embedding in zip(chunks, embeddings):
+        document = {
+            "id": chunk['id'],
+            "company_name": chunk['company_name'],
+            "ticker": chunk['ticker'],
+            "section_type": chunk['section_type'],
+            "content": chunk['content'],
+            "content_vector": embedding,
+            "chunk_index": chunk['chunk_index'],
+            "ingestion_timestamp": ingestion_time
+        }
+        
+        # Add optional fields from chunks if they exist
+        for field in ['estimated_tokens', 'word_count']:
+            if field in chunk:
+                document[field] = chunk[field]
+        
+        # Add financial metrics, but only allowed ones
+        metrics_dict = metrics.to_dict()
+        for key, value in metrics_dict.items():
+            if key in allowed_fields and key not in document and value is not None:
+                document[key] = value
+        
+        documents.append(document)
+    
+    print(f"Prepared {len(documents)} documents with allowed fields only")
+    return documents
+
+
+
+ # Update your ingest_10k_pdf method - replace the document preparation section
+
+def ingest_10k_pdf(self, pdf_path: str) -> bool:
+    """Main ingestion pipeline for 10-K PDF with safe field handling"""
+    print(f"Processing 10-K PDF: {pdf_path}")
+    
+    try:
+        # Extract text
+        print("Extracting text from PDF...")
+        text = self.extract_text_from_pdf(pdf_path)
+        
+        if len(text.strip()) < 1000:
+            print("Warning: Extracted text is very short")
+            return False
+        
+        # Extract company info
+        print("Extracting company information...")
+        company_name, ticker = self.extract_company_info(text)
+        print(f"Company: {company_name} ({ticker})")
+        
+        # Extract financial metrics
+        print("Extracting financial metrics...")
+        metrics = self.extract_enhanced_financial_metrics(text, company_name, ticker)
+        
+        # Display key metrics
+        print(f"Key Financial Metrics for {metrics.company_name}:")
+        if metrics.revenue:
+            print(f"  Revenue: ${metrics.revenue/1_000_000:,.0f}M")
+        if metrics.net_income:
+            print(f"  Net Income: ${metrics.net_income/1_000_000:,.0f}M")
+        if metrics.employees:
+            print(f"  Employees: {metrics.employees:,}")
+        if metrics.operating_margin:
+            print(f"  Operating Margin: {metrics.operating_margin:.1f}%")
+        
+        # Chunk document with safer parameters
+        print("Chunking document...")
+        chunks = self.chunk_document_by_sections(text, company_name, ticker, chunk_size=800, overlap=100)
+        print(f"Created {len(chunks)} chunks")
+        
+        # Generate embeddings safely
+        print("Generating embeddings...")
+        chunk_texts = [chunk['content'] for chunk in chunks]
+        embeddings = self.generate_embeddings_safe(chunk_texts)  # Use the safe version
+        
+        # Prepare documents safely - only include fields that exist in schema
+        print("Preparing documents for indexing...")
+        documents = self.prepare_documents_safely(chunks, embeddings, metrics)
+        
+        # Upload to Azure Search
+        print("Uploading to Azure Search...")
+        search_client = SearchClient(
+            endpoint=self.search_client._endpoint,
+            index_name=self.index_name,
+            credential=self.search_client._credential
+        )
+        
+        batch_size = 50
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            try:
+                result = search_client.upload_documents(batch)
+                print(f"Uploaded batch {i//batch_size + 1}/{(len(documents) + batch_size - 1)//batch_size}")
+                
+                # Check for any failed uploads in the batch
+                failed_count = sum(1 for item in result if not item.succeeded)
+                if failed_count > 0:
+                    print(f"Warning: {failed_count} documents failed in this batch")
+                    for item in result:
+                        if not item.succeeded:
+                            print(f"  Failed document {item.key}: {item.error_message}")
+                            
+            except Exception as e:
+                print(f"Error uploading batch {i//batch_size + 1}: {e}")
+                # Try uploading documents one by one to identify the problematic one
+                print("Trying individual document upload to identify the issue...")
+                for j, doc in enumerate(batch):
+                    try:
+                        search_client.upload_documents([doc])
+                        print(f"  Document {j+1} uploaded successfully")
+                    except Exception as doc_error:
+                        print(f"  Document {j+1} failed: {doc_error}")
+                        print(f"  Document fields: {list(doc.keys())}")
+                return False
+        
+        print(f"Successfully ingested {company_name}: {len(documents)} chunks indexed")
+        return True
+        
+    except Exception as e:
+        print(f"Error in ingestion pipeline: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+        #################################
+
+Quick Fix Summary
+The error occurs because your search index schema is missing the gross_profit field (and possibly others). Here are two solutions:
+Solution 1: Update the Schema (Recommended)
+
+Replace your create_enhanced_search_index method with the fixed version above
+Run the script again - it will delete and recreate the index with all required fields
+
+Solution 2: Filter Fields Before Upload
+
+Add the prepare_documents_safely method to your class
+Use it in your ingestion pipeline instead of the current document preparation
+
+Root Cause
+Your FinancialMetrics dataclass includes fields like gross_profit, debt_to_equity, etc., but your Azure Search index schema doesn't have these fields defined. When you try to upload documents with these fields, Azure Search rejects them.
+Quick Test
+After updating the schema, you can test with a simple debug:
+python# Add this to test your schema
+
+tool = AzureVault10KIngestionTool(**config)
+tool.create_enhanced_search_index()
+
+# Check what fields are actually extracted
+from dataclasses import fields
+financial_fields = [f.name for f in fields(FinancialMetrics)]
+print("FinancialMetrics fields:", financial_fields)
+The enhanced schema now includes ALL possible fields from your FinancialMetrics class, so this error should not occur again. The script will also provide better error messages if any field mismatches remain.
+
+
