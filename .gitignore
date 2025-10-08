@@ -1,0 +1,11 @@
+# Ignore Microsoft Word temporary files
+~$*.docx
+~$*.doc
+~$*.dotx
+~$*.dot
+*.tmp
+*.temp
+# Other common Office temp files
+~$*
+*.wbk
+*.asd
