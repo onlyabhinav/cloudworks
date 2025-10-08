@@ -1,10 +1,14 @@
-# Meta-Magic: Automating Postgres Deployments with psql Meta-Commands and DB_TOOL
+# Meta-Magic: Automating Postgres Deployments with psql Meta-Commands and G3
 
-Database deployments can be challenging, especially when managing multiple environments and ensuring consistency across releases. Recently, our team automated Postgres deployments using DB_TOOL, our in-house deployment tool, and I wanted to share our approach.
+Database deployments can be challenging, especially when managing multiple environments and ensuring consistency across releases. Recently, our team automated Postgres deployments using G3, our in-house deployment tool, and I wanted to share our approach.
 
 ## The Challenge
 
-Manual database deployments are error-prone and time-consuming. We needed a solution that would ensure consistency, support rollbacks, and provide clear verification of deployment success. The key was finding the right balance between automation and control.
+Manual database deployments are error-prone and time-consuming. We needed a solution that would ensure consistency, support rollbacks, and provide clear verification of deployment success.
+
+Previously, we were using Liquibase for Postgres deployments, but it came with a significant security concern: we had to store the schema owner password in Liquibase configuration files. This posed a security risk and didn't align with our compliance requirements.
+
+While we had G3 as our in-house deployment tool, it didn't support Postgres deployments. The key was extending G3 to handle Postgres while addressing the security gaps we faced with Liquibase.
 
 ## Our Solution: Structure and Simplicity
 
@@ -91,7 +95,7 @@ This approach provides several benefits:
 - **Reduced Errors**: No manual find-and-replace operations that could miss instances
 - **Cleaner Scripts**: Schema names are defined once at the top of the deployment
 
-The DB_TOOL tool passes the appropriate schema name as a parameter, and our `MAIN_APPLY.sql` sets the variable before executing the numbered folders.
+The G3 tool passes the appropriate schema name as a parameter, and our `MAIN_APPLY.sql` sets the variable before executing the numbered folders.
 
 ### Granular Control
 
@@ -108,7 +112,7 @@ While the structure itself is straightforward, setting up the automation require
 - Environment-specific variables
 - Connection parameters
 - Error handling strategies
-- Transaction management within DB_TOOL
+- Transaction management within G3
 
 The upfront investment paid off with reliable, repeatable deployments.
 
@@ -120,6 +124,19 @@ Our automated approach has transformed how we deploy database changes:
 - **Confidence**: Automated verification ensures changes are applied correctly
 - **Rollback Safety**: Rollbacks, which used to be nerve-wracking, are now simple and reliable
 - **Better Reviews**: The structured approach improved our code review process—reviewers can quickly navigate to relevant sections and understand the scope of changes
+
+## Security Benefits: A Game Changer
+
+One of the most significant improvements over our Liquibase approach is security. With G3, we've eliminated the need to store database credentials in configuration files.
+
+**How it works:**
+
+- G3 server connects to the Postgres server using passwordless SSH authentication
+- Deployments execute using the `psql` command running as the postgres superuser
+- No passwords are stored in configuration files, scripts, or code repositories
+- All credentials are managed through SSH keys and system-level authentication
+
+This approach not only enhances security but also simplifies credential rotation and access management. We no longer worry about encrypted passwords in config files or credential leaks through version control systems.
 
 ## Looking Forward
 
