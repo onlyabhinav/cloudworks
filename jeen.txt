@@ -1,0 +1,15 @@
+import hudson.model.*
+
+// Get current build
+def build = Thread.currentThread().executable
+def resolver = build.buildVariableResolver
+
+// Read parameters
+def ticketId = resolver.resolve('TICKET_ID') ?: 'NO-TICKET'
+def environment = resolver.resolve('ENVIRONMENT') ?: 'DEV'
+def version = resolver.resolve('VERSION') ?: '1.0.0'
+
+// Set description
+build.setDescription("${ticketId} | ${environment} | v${version}")
+
+println "Build description set: ${ticketId} | ${environment}"
