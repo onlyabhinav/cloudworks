@@ -13,3 +13,17 @@ def version = resolver.resolve('VERSION') ?: '1.0.0'
 build.setDescription("${ticketId} | ${environment} | v${version}")
 
 println "Build description set: ${ticketId} | ${environment}"
+
+
+
+==============================
+
+// Get build object explicitly
+def jenkins = Jenkins.getInstance()
+def jobName = System.getenv('JOB_NAME')
+def buildNumber = System.getenv('BUILD_NUMBER') as Integer
+
+def job = jenkins.getItemByFullName(jobName)
+def build = job.getBuildByNumber(buildNumber)
+
+println "Found build: #${build.number}"
