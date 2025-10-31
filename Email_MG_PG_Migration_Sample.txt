@@ -69,3 +69,25 @@ Thank you to everyone involved for their commitment, teamwork, and professionali
 Best regards,
 [Your Name]
 [Your Designation / Team Name]
+
+------------------------------------------------
+
+Subject: Successful Oracle to EDB Postgres Migration - Completed in Record Time!
+
+Dear Team,
+I am pleased to announce the successful completion of our Oracle to EDB Postgres migration, which was executed seamlessly on [Day, Date] in an impressive 5 hours!
+This achievement would not have been possible without the exceptional collaboration and dedication of our teams:
+DBA Team - Your meticulous planning, flawless execution, and technical expertise ensured a smooth transition with zero downtime. Thank you for your tireless efforts in managing the database migration complexities.
+Application Team - Your thorough preparation, code optimization, and quick resolution of compatibility issues kept us on track throughout the process. Your coordination was instrumental to our success.
+Business Users - Thank you for your flexibility in accommodating the migration window and for conducting comprehensive testing to validate the system functionality. Your prompt feedback was invaluable.
+Special Thanks to:
+
+[Name] - [specific contribution]
+[Name] - [specific contribution]
+[Name] - [specific contribution]
+
+This successful migration on a weekday with such minimal disruption to business operations is a testament to the professionalism and commitment of everyone involved. The move to EDB Postgres positions us well for improved performance, cost optimization, and enhanced scalability.
+Congratulations to everyone on this significant milestone!
+Best regards,
+[Your Name]
+[Your Title]
