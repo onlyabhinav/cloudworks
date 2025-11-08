@@ -48,19 +48,6 @@
   Refresh            → Reload current display
   Expand All         → Open all IT Service cards
   Collapse All       → Close all IT Service cards
-  Select Columns     → Choose additional CSV columns to display (NEW!)
-
-┌────────────────────────────────────────────────────────────────┐
-│ ✨ VULNERABILITY DETAILS (ENHANCED)                            │
-└────────────────────────────────────────────────────────────────┘
-  • CVE Description
-  • Severity Badge (color-coded)
-  • CVE Link → Opens National Vulnerability Database (NEW!)
-  • Solution → Recommended fix (NEW!)
-  • Patch Available → Yes/No/Pending (NEW!)
-  • Patch Available Date → When patch released (NEW!)
-  • Affected Hosts → All hosts with environment tags
-  • Custom Columns → User-selected additional fields (NEW!)
 
 ┌────────────────────────────────────────────────────────────────┐
 │ 🧪 TEST DATA                                                   │

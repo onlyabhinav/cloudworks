@@ -1,0 +1,282 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║         🎉 ENHANCED VULNERABILITY ANALYSIS v1.1.0 🎉           ║
+║                                                                ║
+║                     What's New & Updated                       ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════
+ 🆕 NEW FEATURES
+═══════════════════════════════════════════════════════════════
+
+1. 💡 SOLUTION DISPLAY
+   ────────────────────────────────────────────────────────────
+   ✓ Shows recommended fix for each vulnerability
+   ✓ Automatically extracted from CSV 'Solution' column
+   ✓ Displayed in vulnerability details section
+   ✓ Included in all export formats
+   
+   Example: "Apply patch version 2.4.5 or upgrade to latest"
+
+
+2. 🔧 PATCH INFORMATION
+   ────────────────────────────────────────────────────────────
+   ✓ Patch availability status (Yes/No/Pending)
+   ✓ Patch release date
+   ✓ Helps prioritize patchable vulnerabilities
+   ✓ Included in all exports
+   
+   Fields:
+   • Patch_Available
+   • Patch_Available_Date
+
+
+3. 🔗 CVE LINKS
+   ────────────────────────────────────────────────────────────
+   ✓ Direct links to National Vulnerability Database (NVD)
+   ✓ Auto-extracts CVE ID from description
+   ✓ Opens in new window
+   ✓ Quick access to CVSS scores and references
+   
+   Format: https://nvd.nist.gov/vuln/detail/CVE-2024-1234
+
+
+4. ⚙️ COLUMN SELECTOR
+   ────────────────────────────────────────────────────────────
+   ✓ Select ANY additional columns from your CSV
+   ✓ Custom view for different teams/use cases
+   ✓ Easy checkbox interface
+   ✓ Selections persist during session
+   
+   Examples of selectable columns:
+   • Due_Date, Overdue_Days
+   • JIRA_Ticket, Service_Owner
+   • Region, Country, Asset_OS
+   • IP, Port, Asset_Priority
+   • And 60+ more from Kenna exports!
+
+
+═══════════════════════════════════════════════════════════════
+ 🎨 UI IMPROVEMENTS
+═══════════════════════════════════════════════════════════════
+
+Enhanced Vulnerability Display:
+┌─────────────────────────────────────────────────────────────┐
+│ [Critical] Apache CVE-2024-1234: Remote Code Execution     │
+├─────────────────────────────────────────────────────────────┤
+│ 🔗 CVE Details: CVE-2024-1234 (Open in NVD)        ← NEW   │
+│ 💡 Solution: Apply security patch 3.2.1            ← NEW   │
+│ 🔧 Patch Available: Yes                            ← NEW   │
+│ 📅 Patch Available Date: 2025-10-15                ← NEW   │
+├─────────────────────────────────────────────────────────────┤
+│ [Your selected columns appear here]                ← NEW   │
+├─────────────────────────────────────────────────────────────┤
+│ Affected Hosts (3):                                         │
+│ • web-server-01 (Production) - Open                         │
+│ • web-server-02 (Staging) - In Progress                     │
+└─────────────────────────────────────────────────────────────┘
+
+New Navigation Button:
+   ⚙️ Select Columns  ← Opens column selector modal
+
+
+═══════════════════════════════════════════════════════════════
+ 📤 EXPORT ENHANCEMENTS
+═══════════════════════════════════════════════════════════════
+
+All Export Formats Updated:
+
+✓ CSV Export
+  • All original columns preserved
+  • Solution, Patch info included
+
+✓ JSON Export  
+  • New fields: solution, patch_available, 
+    patch_available_date, cve_link
+
+✓ Excel Export
+  • Enhanced data sheet with new columns
+  • Summary statistics unchanged
+
+✓ Text Export
+  • Beautiful formatted output
+  • Includes CVE links, solutions, patch info
+  • Perfect for documentation
+
+
+═══════════════════════════════════════════════════════════════
+ 🚀 HOW TO USE NEW FEATURES
+═══════════════════════════════════════════════════════════════
+
+1. START APPLICATION
+   bash start.sh
+
+2. UPLOAD YOUR DATA
+   • Use existing Kenna CSV (already has Solution, Patch columns)
+   • Or any CSV with similar structure
+
+3. VIEW ENHANCED DETAILS
+   • Expand any IT Service
+   • See solution and patch info automatically
+   • Click CVE links to research
+
+4. CUSTOMIZE YOUR VIEW
+   • Click "⚙️ Select Columns" button
+   • Check boxes for additional fields
+   • Click "Apply Selection"
+   • View custom data inline
+
+5. EXPORT WITH ENHANCEMENTS
+   • All exports include new fields
+   • Text format beautifully formatted
+
+
+═══════════════════════════════════════════════════════════════
+ 🎯 USE CASE EXAMPLES
+═══════════════════════════════════════════════════════════════
+
+SECURITY TEAM:
+   1. Upload scan → 2. Click CVE links for research
+   3. Review solutions → 4. Check patch availability
+   5. Export to Excel for management
+
+OPERATIONS TEAM:
+   1. Upload scan → 2. Select: Due_Date, Service_Owner, JIRA
+   3. Review patchable items → 4. Coordinate with owners
+   5. Export to CSV for tracking
+
+COMPLIANCE TEAM:
+   1. Upload scan → 2. Select: Region, Asset_OS, Risk_Score
+   3. Review by geography → 4. Check patch timelines
+   5. Export to Text for documentation
+
+
+═══════════════════════════════════════════════════════════════
+ 📊 DATA REQUIREMENTS
+═══════════════════════════════════════════════════════════════
+
+REQUIRED (same as before):
+   ✓ IT_Service
+   ✓ Hostname
+   ✓ Tag_Environment
+   ✓ CVE_Description
+   ✓ Severity
+   ✓ Status
+
+OPTIONAL (for enhanced features):
+   • Solution (for fix recommendations)
+   • Patch_Available (for patch status)
+   • Patch_Available_Date (for patch timeline)
+   • CVE ID in CVE_Description (for auto-linking)
+
+NOTE: If optional fields missing, they show as "N/A"
+      No errors, application works normally
+
+
+═══════════════════════════════════════════════════════════════
+ 💡 TIPS & TRICKS
+═══════════════════════════════════════════════════════════════
+
+✓ CVE LINKS
+  • Right-click → "Open in new tab" to keep your place
+  • Check CVSS scores for better prioritization
+
+✓ COLUMN SELECTOR  
+  • Start with a few columns, add more as needed
+  • Different selections for different reports
+  • Remember: Already-shown columns are filtered out
+
+✓ SOLUTIONS
+  • Copy directly to remediation tickets
+  • Include in change documentation
+  • Share with operations teams
+
+✓ PATCH INFO
+  • Prioritize vulnerabilities with patches available
+  • Track patch age (old unpatchable = escalate)
+
+
+═══════════════════════════════════════════════════════════════
+ 🔄 UPGRADE NOTES
+═══════════════════════════════════════════════════════════════
+
+From v1.0.0 → v1.1.0:
+
+✓ All existing functionality preserved
+✓ No breaking changes
+✓ Same file structure
+✓ Same installation process
+✓ Enhanced with new features
+
+Just replace your files and restart:
+   1. Stop application (Ctrl+C)
+   2. Replace app.py and templates/index.html
+   3. Restart: bash start.sh
+
+
+═══════════════════════════════════════════════════════════════
+ 📚 DOCUMENTATION
+═══════════════════════════════════════════════════════════════
+
+   ENHANCED_FEATURES.md  → Detailed guide to new features
+   README.md             → Updated with new features
+   QUICK_REFERENCE.txt   → Updated quick reference
+   All other docs        → Same as before
+
+
+═══════════════════════════════════════════════════════════════
+ ✅ TESTING
+═══════════════════════════════════════════════════════════════
+
+Sample data includes:
+   ✓ Solution column populated
+   ✓ Patch_Available (Yes/No/Pending)
+   ✓ Patch_Available_Date values
+   ✓ CVE IDs in descriptions
+   ✓ 85 total columns to select from
+
+Test workflow:
+   1. Upload sample_vulnerability_data.csv
+   2. Expand any service
+   3. See new fields displayed
+   4. Click a CVE link
+   5. Open column selector
+   6. Select: Due_Date, JIRA_Ticket, Service_Owner
+   7. Apply and view
+   8. Export to see enhanced formats
+
+
+═══════════════════════════════════════════════════════════════
+ 🎉 BENEFITS SUMMARY
+═══════════════════════════════════════════════════════════════
+
+Time Savings:
+   • No need to look up CVEs manually → Click links
+   • Solutions shown inline → No research needed
+   • Custom columns → No need to export to see data
+
+Better Decisions:
+   • Patch info → Prioritize patchable items
+   • Solutions → Plan remediation accurately
+   • Flexible views → Right data for each team
+
+Improved Workflow:
+   • CVE research integrated → Seamless experience
+   • Column selector → One view for all needs
+   • Enhanced exports → Better documentation
+
+
+═══════════════════════════════════════════════════════════════
+
+              🚀 Ready to explore the new features?
+
+                      bash start.sh
+
+═══════════════════════════════════════════════════════════════
+
+
+                    Version 1.1.0 - November 8, 2025
+                Enhanced with ❤️ for security teams
+

@@ -15,9 +15,6 @@ A Flask-based web application for analyzing and visualizing vulnerability data f
 - **Tabular Format**: Organized vulnerability listings by IT Service
 - **Severity Highlighting**: Color-coded severity levels (Critical, High, Medium, Low)
 - **Host Information**: Shows all affected hosts with environment tags
-- **Vulnerability Details**: Solution, patch availability, and CVE links
-- **Column Selector**: Choose additional columns to display from your CSV
-- **CVE Links**: Direct links to National Vulnerability Database (NVD)
 
 ### Export Options
 - **CSV Export**: Raw data with all columns preserved
@@ -29,14 +26,7 @@ A Flask-based web application for analyzing and visualizing vulnerability data f
 - Upload New File
 - Refresh Data
 - Expand/Collapse All Services
-- **Select Additional Columns** (NEW!)
 - Multiple Export Formats
-
-### Enhanced Vulnerability Display (NEW!)
-- **Solution**: Shows recommended fix for each vulnerability
-- **Patch Information**: Displays patch availability and date
-- **CVE Links**: Direct links to National Vulnerability Database
-- **Custom Columns**: Select any additional columns from your CSV to display
 
 ## Installation
 
@@ -108,13 +98,8 @@ All other columns are optional but will be preserved in exports.
 **Vulnerability Details**:
 - CVE description
 - Severity badge (color-coded)
-- **Solution** (recommended fix)
-- **Patch Available** (Yes/No/Pending)
-- **Patch Available Date** (when patch was released)
-- **CVE Link** (opens in new window to NVD)
 - List of all affected hosts with environment tags
 - Current status for each host
-- **Additional columns** (user-selectable)
 
 ### Exporting Data
 
@@ -131,22 +116,6 @@ Use the navigation bar buttons to export in your preferred format:
 - **Refresh**: Reload the current data display
 - **Expand All**: Open all IT Service cards
 - **Collapse All**: Close all IT Service cards
-- **Select Columns**: Choose additional columns from your CSV to display
-
-### Using the Column Selector
-
-1. Click "⚙️ Select Columns" in the navigation bar
-2. A modal will appear showing all available columns from your CSV
-3. Check the columns you want to display (already-displayed columns are filtered out)
-4. Click "Apply Selection"
-5. The selected columns will appear in each vulnerability's details section
-6. You can change your selection at any time
-
-**Note**: The following columns are always displayed by default:
-- IT_Service, Hostname, Tag_Environment, CVE_Description, Severity, Status
-- Solution, Patch_Available, Patch_Available_Date
-
-All other columns can be optionally displayed via the column selector.
 
 ## Data Structure
 

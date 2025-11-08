@@ -26,15 +26,13 @@ def process_vulnerability_data(df):
     Process vulnerability data grouped by IT Service.
     Returns structured data with unique vulnerabilities and affected hosts.
     """
-    import re
-    
     # Validate required columns
     missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_cols:
         raise ValueError(f"Missing required columns: {', '.join(missing_cols)}")
     
     # Group by IT_Service
-    grouped_data = defaultdict(lambda: defaultdict(lambda: {'hosts': [], 'details': None}))
+    grouped_data = defaultdict(lambda: defaultdict(list))
     
     for _, row in df.iterrows():
         it_service = row['IT_Service']
@@ -50,61 +48,22 @@ def process_vulnerability_data(df):
         }
         
         # Check if this host is already in the list
-        existing_hosts = grouped_data[it_service][vuln_key]['hosts']
+        existing_hosts = grouped_data[it_service][vuln_key]
         if not any(h['hostname'] == host_info['hostname'] and h['environment'] == host_info['environment'] 
                    for h in existing_hosts):
-            existing_hosts.append(host_info)
-        
-        # Store vulnerability details (same for all instances of this vulnerability)
-        if grouped_data[it_service][vuln_key]['details'] is None:
-            # Extract CVE ID for link generation
-            cve_id = None
-            if 'CVE-' in str(row['CVE_Description']):
-                # Extract CVE ID (e.g., CVE-2024-1234)
-                import re
-                cve_match = re.search(r'CVE-\d{4}-\d+', str(row['CVE_Description']))
-                if cve_match:
-                    cve_id = cve_match.group(0)
-            
-            # Get solution value
-            solution_val = row.get('Solution', '')
-            if solution_val == '' or pd.isna(solution_val):
-                solution_val = 'N/A'
-            
-            # Get patch available value
-            patch_avail = row.get('Patch_Available', '')
-            if patch_avail == '' or pd.isna(patch_avail):
-                patch_avail = 'N/A'
-            
-            # Get patch available date
-            patch_date = row.get('Patch_Available_Date', '')
-            if patch_date == '' or pd.isna(patch_date):
-                patch_date = 'N/A'
-            
-            grouped_data[it_service][vuln_key]['details'] = {
-                'solution': str(solution_val),
-                'patch_available': str(patch_avail),
-                'patch_available_date': str(patch_date),
-                'cve_id': cve_id,
-                'cve_link': f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else None
-            }
+            grouped_data[it_service][vuln_key].append(host_info)
     
     # Convert to structured format
     result = {}
     for it_service, vulnerabilities in grouped_data.items():
         result[it_service] = []
-        for vuln_key, data in vulnerabilities.items():
+        for vuln_key, hosts in vulnerabilities.items():
             vuln_desc, severity = vuln_key.split('|', 1)
             result[it_service].append({
                 'cve_description': vuln_desc,
                 'severity': severity,
-                'affected_hosts': data['hosts'],
-                'host_count': len(data['hosts']),
-                'solution': data['details']['solution'],
-                'patch_available': data['details']['patch_available'],
-                'patch_available_date': data['details']['patch_available_date'],
-                'cve_id': data['details']['cve_id'],
-                'cve_link': data['details']['cve_link']
+                'affected_hosts': hosts,
+                'host_count': len(hosts)
             })
         # Sort by severity (Critical > High > Medium > Low)
         severity_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
@@ -118,18 +77,16 @@ def calculate_summary_stats(df):
         'total_vulnerabilities': len(df),
         'unique_services': df['IT_Service'].nunique(),
         'unique_hosts': df['Hostname'].nunique(),
-        'severity_breakdown': df['Severity'].value_counts().to_dict(),
-        'status_breakdown': df['Status'].value_counts().to_dict(),
-        'environment_breakdown': df['Tag_Environment'].value_counts().to_dict(),
+        'severity_breakdown': df['Severity'].value_counts().fillna(0).to_dict(),
+        'status_breakdown': df['Status'].value_counts().fillna(0).to_dict(),
+        'environment_breakdown': df['Tag_Environment'].value_counts().fillna(0).to_dict(),
         'by_service': {}
     }
     
     # Calculate stats by service
-    for service in df['IT_Service'].dropna().unique():
-        if service == '':
-            continue
+    for service in df['IT_Service'].unique():
         service_df = df[df['IT_Service'] == service]
-        stats['by_service'][str(service)] = {
+        stats['by_service'][service] = {
             'total_vulns': len(service_df),
             'unique_hosts': service_df['Hostname'].nunique(),
             'critical': len(service_df[service_df['Severity'] == 'Critical']),
@@ -164,9 +121,6 @@ def upload_file():
             try:
                 df = pd.read_csv(filepath)
                 
-                # Replace NaN values with empty strings to avoid JSON issues
-                df = df.fillna('')
-                
                 # Store data in session
                 session['current_file'] = filename
                 session['upload_time'] = datetime.now().isoformat()
@@ -175,15 +129,11 @@ def upload_file():
                 grouped_data = process_vulnerability_data(df)
                 stats = calculate_summary_stats(df)
                 
-                # Get all available columns for the column selector
-                all_columns = df.columns.tolist()
-                
                 return jsonify({
                     'success': True,
                     'filename': filename,
                     'stats': stats,
-                    'grouped_data': grouped_data,
-                    'available_columns': all_columns
+                    'grouped_data': grouped_data
                 })
             except ValueError as ve:
                 os.remove(filepath)
@@ -196,52 +146,6 @@ def upload_file():
     
     except Exception as e:
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
-@app.route('/get_column_data', methods=['POST'])
-def get_column_data():
-    """Get data for selected additional columns"""
-    try:
-        if 'current_file' not in session:
-            return jsonify({'error': 'No data available'}), 400
-        
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], session['current_file'])
-        if not os.path.exists(filepath):
-            return jsonify({'error': 'Data file not found'}), 404
-        
-        data = request.get_json()
-        selected_columns = data.get('columns', [])
-        
-        if not selected_columns:
-            return jsonify({'column_data': {}})
-        
-        df = pd.read_csv(filepath)
-        
-        # Replace NaN with empty strings
-        df = df.fillna('')
-        
-        # Group by IT_Service and CVE_Description to get unique vulnerabilities
-        column_data = {}
-        
-        for _, row in df.iterrows():
-            it_service = row['IT_Service']
-            cve_desc = row['CVE_Description']
-            key = f"{it_service}||{cve_desc}"
-            
-            if key not in column_data:
-                column_data[key] = {}
-                for col in selected_columns:
-                    if col in df.columns:
-                        value = row[col]
-                        # Handle empty values
-                        if value == '' or pd.isna(value):
-                            column_data[key][col] = 'N/A'
-                        else:
-                            column_data[key][col] = str(value)
-        
-        return jsonify({'column_data': column_data})
-    
-    except Exception as e:
-        return jsonify({'error': f'Failed to get column data: {str(e)}'}), 500
 
 @app.route('/export/<format>')
 def export_data(format):
@@ -379,21 +283,6 @@ def export_data(format):
                 
                 for idx, vuln in enumerate(vulnerabilities, 1):
                     output.write(f"{idx}. [{vuln['severity']}] {vuln['cve_description']}\n")
-                    
-                    # Add CVE link if available
-                    if vuln.get('cve_link'):
-                        output.write(f"   CVE Link: {vuln['cve_link']}\n")
-                    
-                    # Add solution
-                    if vuln.get('solution') and vuln['solution'] != 'N/A':
-                        output.write(f"   Solution: {vuln['solution']}\n")
-                    
-                    # Add patch information
-                    if vuln.get('patch_available') and vuln['patch_available'] != 'N/A':
-                        output.write(f"   Patch Available: {vuln['patch_available']}\n")
-                    if vuln.get('patch_available_date') and vuln['patch_available_date'] != 'N/A':
-                        output.write(f"   Patch Available Date: {vuln['patch_available_date']}\n")
-                    
                     output.write(f"   Affected Hosts ({vuln['host_count']}):\n")
                     for host in vuln['affected_hosts']:
                         output.write(f"     - {host['display']} [Status: {host['status']}]\n")
@@ -419,4 +308,3 @@ def export_data(format):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-    

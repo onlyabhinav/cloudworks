@@ -80,95 +80,6 @@
             background: #e53e3e;
         }
 
-        .nav-btn.purple {
-            background: #9f7aea;
-        }
-
-        .nav-btn.purple:hover {
-            background: #805ad5;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-
-        .modal.visible {
-            display: block;
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 30px;
-            border-radius: 10px;
-            width: 80%;
-            max-width: 700px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .modal-header h2 {
-            color: #667eea;
-        }
-
-        .close {
-            color: #aaa;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-
-        .close:hover {
-            color: #000;
-        }
-
-        .column-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        .column-checkbox {
-            display: flex;
-            align-items: center;
-            padding: 8px;
-            background: #f8fafc;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .column-checkbox:hover {
-            background: #e2e8f0;
-        }
-
-        .column-checkbox input[type="checkbox"] {
-            margin-right: 8px;
-            cursor: pointer;
-        }
-
-        .column-checkbox label {
-            cursor: pointer;
-            font-size: 14px;
-        }
-
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -439,61 +350,6 @@
             margin-bottom: 10px;
         }
 
-        .vuln-details {
-            background: white;
-            padding: 12px;
-            border-radius: 5px;
-            margin: 10px 0;
-            border: 1px solid #e2e8f0;
-        }
-
-        .vuln-detail-row {
-            display: flex;
-            margin: 6px 0;
-            font-size: 14px;
-        }
-
-        .vuln-detail-label {
-            font-weight: 600;
-            color: #4a5568;
-            min-width: 150px;
-        }
-
-        .vuln-detail-value {
-            color: #2d3748;
-            flex: 1;
-        }
-
-        .cve-link {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-
-        .cve-link:hover {
-            color: #5568d3;
-            text-decoration: underline;
-        }
-
-        .additional-column {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .additional-column-label {
-            font-weight: 600;
-            color: #4a5568;
-            font-size: 13px;
-        }
-
-        .additional-column-value {
-            color: #2d3748;
-            font-size: 13px;
-            margin-top: 3px;
-        }
-
         .host-list {
             margin-top: 10px;
         }
@@ -541,7 +397,6 @@
         <button class="nav-btn" onclick="refreshData()">🔄 Refresh</button>
         <button class="nav-btn secondary" onclick="expandAll()">➕ Expand All</button>
         <button class="nav-btn secondary" onclick="collapseAll()">➖ Collapse All</button>
-        <button class="nav-btn purple" onclick="openColumnSelector()">⚙️ Select Columns</button>
         <button class="nav-btn" onclick="exportData('csv')">📊 Export CSV</button>
         <button class="nav-btn" onclick="exportData('json')">📄 Export JSON</button>
         <button class="nav-btn" onclick="exportData('excel')">📗 Export Excel</button>
@@ -577,29 +432,8 @@
         <div class="data-section" id="dataSection"></div>
     </div>
 
-    <!-- Column Selector Modal -->
-    <div id="columnModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Select Additional Columns to Display</h2>
-                <span class="close" onclick="closeColumnSelector()">&times;</span>
-            </div>
-            <p style="color: #718096; margin-bottom: 15px;">
-                Choose additional columns from your CSV to display in the vulnerability details.
-            </p>
-            <div id="columnList" class="column-list"></div>
-            <div style="margin-top: 20px; text-align: right;">
-                <button class="nav-btn secondary" onclick="applyColumnSelection()">Apply Selection</button>
-                <button class="nav-btn" onclick="closeColumnSelector()" style="margin-left: 10px;">Cancel</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         let currentData = null;
-        let availableColumns = [];
-        let selectedAdditionalColumns = [];
-        let additionalColumnData = {};
 
         // Drag and drop functionality
         const uploadArea = document.getElementById('uploadArea');
@@ -664,7 +498,6 @@
                     showError(data.error);
                 } else {
                     currentData = data;
-                    availableColumns = data.available_columns || [];
                     showSuccess(`File "${data.filename}" uploaded successfully!`);
                     displayStats(data.stats);
                     displayData(data.grouped_data);
@@ -729,82 +562,14 @@
 
                 vulnerabilities.forEach((vuln, idx) => {
                     const severityClass = vuln.severity.toLowerCase();
-                    const vulnKey = `${service}||${vuln.cve_description}`;
-                    
                     html += `
-                        <div class="vulnerability-item ${severityClass}" id="vuln-${service}-${idx}">
+                        <div class="vulnerability-item ${severityClass}">
                             <div class="vuln-header">
                                 <div class="vuln-description">
                                     ${idx + 1}. ${vuln.cve_description}
                                 </div>
                                 <span class="severity-badge ${severityClass}">${vuln.severity}</span>
                             </div>
-                            
-                            <div class="vuln-details">
-                    `;
-                    
-                    // CVE Link
-                    if (vuln.cve_link) {
-                        html += `
-                            <div class="vuln-detail-row">
-                                <div class="vuln-detail-label">🔗 CVE Details:</div>
-                                <div class="vuln-detail-value">
-                                    <a href="${vuln.cve_link}" target="_blank" class="cve-link">
-                                        ${vuln.cve_id} (Open in NVD)
-                                    </a>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // Solution
-                    if (vuln.solution && vuln.solution !== 'N/A') {
-                        html += `
-                            <div class="vuln-detail-row">
-                                <div class="vuln-detail-label">💡 Solution:</div>
-                                <div class="vuln-detail-value">${vuln.solution}</div>
-                            </div>
-                        `;
-                    }
-                    
-                    // Patch Available
-                    if (vuln.patch_available && vuln.patch_available !== 'N/A') {
-                        html += `
-                            <div class="vuln-detail-row">
-                                <div class="vuln-detail-label">🔧 Patch Available:</div>
-                                <div class="vuln-detail-value">${vuln.patch_available}</div>
-                            </div>
-                        `;
-                    }
-                    
-                    // Patch Available Date
-                    if (vuln.patch_available_date && vuln.patch_available_date !== 'N/A') {
-                        html += `
-                            <div class="vuln-detail-row">
-                                <div class="vuln-detail-label">📅 Patch Available Date:</div>
-                                <div class="vuln-detail-value">${vuln.patch_available_date}</div>
-                            </div>
-                        `;
-                    }
-                    
-                    html += `</div>`;
-                    
-                    // Additional columns (if selected)
-                    if (additionalColumnData[vulnKey]) {
-                        html += `<div class="vuln-details">`;
-                        for (const [colName, colValue] of Object.entries(additionalColumnData[vulnKey])) {
-                            html += `
-                                <div class="additional-column">
-                                    <div class="additional-column-label">${colName}:</div>
-                                    <div class="additional-column-value">${colValue}</div>
-                                </div>
-                            `;
-                        }
-                        html += `</div>`;
-                    }
-                    
-                    // Affected hosts
-                    html += `
                             <div class="host-list">
                                 <div class="host-list-header">Affected Hosts (${vuln.host_count}):</div>
                                 <div>
@@ -894,83 +659,6 @@
 
         function hideSuccess() {
             document.getElementById('successMessage').classList.remove('visible');
-        }
-
-        function openColumnSelector() {
-            if (availableColumns.length === 0) {
-                showError('No data loaded. Please upload a file first.');
-                return;
-            }
-
-            // Filter out columns that are already displayed
-            const displayedColumns = [
-                'IT_Service', 'Hostname', 'Tag_Environment', 'CVE_Description', 
-                'Severity', 'Status', 'Solution', 'Patch_Available', 'Patch_Available_Date'
-            ];
-            
-            const selectableColumns = availableColumns.filter(col => !displayedColumns.includes(col));
-            
-            const columnList = document.getElementById('columnList');
-            columnList.innerHTML = '';
-            
-            selectableColumns.forEach(column => {
-                const isChecked = selectedAdditionalColumns.includes(column);
-                const div = document.createElement('div');
-                div.className = 'column-checkbox';
-                div.innerHTML = `
-                    <input type="checkbox" id="col-${column}" value="${column}" ${isChecked ? 'checked' : ''}>
-                    <label for="col-${column}">${column}</label>
-                `;
-                columnList.appendChild(div);
-            });
-            
-            document.getElementById('columnModal').classList.add('visible');
-        }
-
-        function closeColumnSelector() {
-            document.getElementById('columnModal').classList.remove('visible');
-        }
-
-        function applyColumnSelection() {
-            const checkboxes = document.querySelectorAll('#columnList input[type="checkbox"]:checked');
-            selectedAdditionalColumns = Array.from(checkboxes).map(cb => cb.value);
-            
-            if (selectedAdditionalColumns.length > 0) {
-                // Fetch data for selected columns
-                fetch('/get_column_data', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ columns: selectedAdditionalColumns })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        showError(data.error);
-                    } else {
-                        additionalColumnData = data.column_data;
-                        displayData(currentData.grouped_data);
-                        closeColumnSelector();
-                        showSuccess(`${selectedAdditionalColumns.length} additional column(s) applied!`);
-                    }
-                })
-                .catch(error => {
-                    showError('Failed to fetch column data: ' + error.message);
-                });
-            } else {
-                additionalColumnData = {};
-                displayData(currentData.grouped_data);
-                closeColumnSelector();
-            }
-        }
-
-        // Close modal when clicking outside of it
-        window.onclick = function(event) {
-            const modal = document.getElementById('columnModal');
-            if (event.target == modal) {
-                closeColumnSelector();
-            }
         }
     </script>
 </body>
