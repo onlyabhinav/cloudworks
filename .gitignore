@@ -9,3 +9,7 @@
 ~$*
 *.wbk
 *.asd
+
+# Ignore uploads directories
+uploads/
+**/uploads/

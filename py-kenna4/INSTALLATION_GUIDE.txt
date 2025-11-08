@@ -1,0 +1,271 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║      VULNERABILITY ANALYSIS WEB APPLICATION                       ║
+║      Installation & Usage Guide                                   ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════
+ STEP 1: VERIFY FILES
+═══════════════════════════════════════════════════════════════════
+
+You should have the following files:
+
+📁 Application Files:
+   ✓ app.py                          - Main application
+   ✓ templates/index.html            - Web interface
+   ✓ requirements.txt                - Dependencies
+
+📊 Sample Data:
+   ✓ generate_sample_data.py         - Data generator
+   ✓ sample_vulnerability_data.csv   - Test data (500 records)
+
+📖 Documentation:
+   ✓ README.md                       - Full documentation
+   ✓ QUICKSTART.txt                  - Quick reference
+   ✓ PROJECT_OVERVIEW.md             - Complete guide
+   ✓ INSTALLATION_GUIDE.txt          - This file
+
+🚀 Utilities:
+   ✓ start.sh                        - Startup script
+
+
+═══════════════════════════════════════════════════════════════════
+ STEP 2: INSTALL (Choose One Method)
+═══════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────┐
+│ METHOD A - AUTOMATIC (EASIEST) ★ RECOMMENDED                    │
+└─────────────────────────────────────────────────────────────────┘
+
+   bash start.sh
+
+   This will:
+   • Install all dependencies automatically
+   • Generate sample data if needed
+   • Start the application
+   • Open on http://localhost:5000
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ METHOD B - MANUAL INSTALLATION                                  │
+└─────────────────────────────────────────────────────────────────┘
+
+   Step 1: Install dependencies
+   
+      pip install -r requirements.txt
+   
+   Step 2: Start application
+   
+      python app.py
+   
+   Step 3: Open browser
+   
+      http://localhost:5000
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ METHOD C - WITH VIRTUAL ENVIRONMENT (RECOMMENDED FOR PROD)      │
+└─────────────────────────────────────────────────────────────────┘
+
+   Step 1: Create virtual environment
+   
+      python -m venv venv
+   
+   Step 2: Activate virtual environment
+   
+      # On Linux/Mac:
+      source venv/bin/activate
+      
+      # On Windows:
+      venv\Scripts\activate
+   
+   Step 3: Install dependencies
+   
+      pip install -r requirements.txt
+   
+   Step 4: Start application
+   
+      python app.py
+
+
+═══════════════════════════════════════════════════════════════════
+ STEP 3: ACCESS THE APPLICATION
+═══════════════════════════════════════════════════════════════════
+
+Once started, you'll see:
+
+   * Running on http://0.0.0.0:5000
+   * Running on http://127.0.0.1:5000
+
+Open your web browser and go to:
+
+   👉 http://localhost:5000
+
+
+═══════════════════════════════════════════════════════════════════
+ STEP 4: TEST WITH SAMPLE DATA
+═══════════════════════════════════════════════════════════════════
+
+1. In the web interface, you'll see a drag-and-drop upload area
+
+2. Drag the file "sample_vulnerability_data.csv" onto the area
+   OR click "Browse Files" and select it
+
+3. Wait 1-2 seconds for processing
+
+4. You'll see:
+   ✓ Summary statistics (total vulns, services, hosts)
+   ✓ IT Service cards (expandable)
+   ✓ Navigation bar with export options
+
+
+═══════════════════════════════════════════════════════════════════
+ STEP 5: USING YOUR OWN DATA
+═══════════════════════════════════════════════════════════════════
+
+Your CSV file MUST have these 6 columns:
+
+   ✓ IT_Service          - Service name
+   ✓ Hostname            - Host identifier
+   ✓ Tag_Environment     - Environment (Prod, Staging, etc.)
+   ✓ CVE_Description     - Vulnerability description
+   ✓ Severity           - Critical, High, Medium, or Low
+   ✓ Status             - Open, Closed, In Progress, etc.
+
+Additional columns are optional but will be preserved in exports.
+
+
+═══════════════════════════════════════════════════════════════════
+ FEATURES OVERVIEW
+═══════════════════════════════════════════════════════════════════
+
+📤 UPLOAD:
+   • Drag-and-drop interface
+   • Browse file selector
+   • Up to 100MB files
+   • CSV format only
+
+📊 DISPLAY:
+   • Summary statistics dashboard
+   • Grouped by IT Service
+   • Expandable service cards
+   • Color-coded severity
+   • All affected hosts listed
+
+🔍 NAVIGATION:
+   • Upload New File
+   • Refresh Data
+   • Expand All / Collapse All
+   • Export options
+
+📥 EXPORT:
+   • CSV - Raw data
+   • JSON - Structured format
+   • Excel - Multi-sheet workbook
+   • Text - Formatted report
+
+
+═══════════════════════════════════════════════════════════════════
+ EXPORT INSTRUCTIONS
+═══════════════════════════════════════════════════════════════════
+
+After uploading data, use the navigation bar buttons:
+
+   📊 Export CSV      → All data in CSV format
+   📄 Export JSON     → Structured JSON with stats
+   📗 Export Excel    → Excel file (2 sheets)
+   📝 Export Text     → Formatted text report
+
+Files are downloaded to your browser's download folder with
+timestamp: vulnerability_export_YYYYMMDD_HHMMSS.[format]
+
+
+═══════════════════════════════════════════════════════════════════
+ COMMON ISSUES & SOLUTIONS
+═══════════════════════════════════════════════════════════════════
+
+❌ PROBLEM: "Missing required columns"
+   ✅ SOLUTION: Check your CSV has all 6 required columns
+
+❌ PROBLEM: "File size exceeds 100MB limit"
+   ✅ SOLUTION: Split file or increase limit in app.py line 11
+
+❌ PROBLEM: Port 5000 already in use
+   ✅ SOLUTION: Edit app.py last line to use different port:
+               app.run(debug=True, host='0.0.0.0', port=8080)
+
+❌ PROBLEM: Dependencies won't install
+   ✅ SOLUTION: Try: pip install --upgrade pip
+               Then: pip install -r requirements.txt --force-reinstall
+
+❌ PROBLEM: Can't access localhost:5000
+   ✅ SOLUTION: Check firewall, verify Python is running,
+               try http://127.0.0.1:5000 instead
+
+
+═══════════════════════════════════════════════════════════════════
+ GENERATING NEW SAMPLE DATA
+═══════════════════════════════════════════════════════════════════
+
+To create fresh sample data:
+
+   python generate_sample_data.py
+
+This creates a new "sample_vulnerability_data.csv" with:
+   • 500 vulnerability records
+   • 12 IT Services
+   • 21 Hosts across 5 environments
+   • Realistic CVE descriptions
+   • All severity levels
+
+
+═══════════════════════════════════════════════════════════════════
+ STOPPING THE APPLICATION
+═══════════════════════════════════════════════════════════════════
+
+To stop the server:
+
+   Press: Ctrl + C
+
+The application will shut down gracefully.
+
+
+═══════════════════════════════════════════════════════════════════
+ SYSTEM REQUIREMENTS
+═══════════════════════════════════════════════════════════════════
+
+✓ Python 3.8 or higher
+✓ pip (Python package manager)
+✓ 50MB free disk space
+✓ Modern web browser
+✓ Internet connection (for initial dependency install only)
+
+Operating Systems:
+   ✓ Linux (Ubuntu, CentOS, etc.)
+   ✓ macOS (10.13+)
+   ✓ Windows (10/11)
+
+
+═══════════════════════════════════════════════════════════════════
+ NEXT STEPS
+═══════════════════════════════════════════════════════════════════
+
+1. ✅ Install the application (bash start.sh)
+2. ✅ Test with sample data
+3. ✅ Try exporting in different formats
+4. ✅ Upload your own vulnerability data
+5. ✅ Generate reports for your team
+
+For more detailed information, see:
+   • README.md - Complete documentation
+   • PROJECT_OVERVIEW.md - Comprehensive guide
+   • QUICKSTART.txt - Quick reference
+
+
+═══════════════════════════════════════════════════════════════════
+
+                Ready to start? Run: bash start.sh
+
+═══════════════════════════════════════════════════════════════════

@@ -1,0 +1,123 @@
+╔══════════════════════════════════════════════════════════════╗
+║    VULNERABILITY ANALYSIS WEB APPLICATION - QUICK START      ║
+╚══════════════════════════════════════════════════════════════╝
+
+📋 WHAT'S INCLUDED:
+-------------------
+✅ app.py                    - Main Flask application
+✅ templates/index.html      - Web interface (auto-created)
+✅ requirements.txt          - Dependencies
+✅ generate_sample_data.py   - Sample data generator
+✅ sample_vulnerability_data.csv - Test data (500 records)
+✅ README.md                 - Full documentation
+✅ start.sh                  - Quick start script
+
+
+🚀 QUICK START (3 STEPS):
+--------------------------
+
+OPTION 1 - Using the start script (EASIEST):
+   bash start.sh
+
+OPTION 2 - Manual start:
+   1. pip install -r requirements.txt
+   2. python app.py
+   3. Open browser to http://localhost:5000
+
+
+📤 UPLOAD YOUR DATA:
+--------------------
+1. Open the web interface
+2. Drag & drop your CSV file (or click "Browse Files")
+3. Wait for processing (usually < 2 seconds)
+4. View results grouped by IT Service
+
+
+✨ FEATURES:
+------------
+• Drag-and-drop file upload (up to 100MB)
+• Automatic grouping by IT Service
+• Unique vulnerability detection
+• Host listing with environments
+• Expand/Collapse all services
+• Export to CSV, JSON, Excel, and Text formats
+
+
+📊 REQUIRED CSV COLUMNS:
+------------------------
+Your CSV MUST have these columns:
+  ✓ IT_Service
+  ✓ Hostname
+  ✓ Tag_Environment
+  ✓ CVE_Description
+  ✓ Severity
+  ✓ Status
+
+All other columns are optional but preserved in exports.
+
+
+🧪 TEST WITH SAMPLE DATA:
+-------------------------
+A sample CSV file has been generated with:
+  • 500 vulnerability records
+  • 12 IT Services
+  • 21 Unique hosts
+  • All severity levels (Critical, High, Medium, Low)
+
+Use this to test the application before uploading real data!
+
+
+📁 EXPORT FORMATS:
+------------------
+CSV    - Raw data with all columns
+JSON   - Structured format with statistics
+Excel  - Multi-sheet workbook (Data + Summary)
+Text   - Formatted readable report
+
+
+🔧 CUSTOMIZATION:
+-----------------
+To change the maximum file size (default 100MB):
+Edit app.py, line 11:
+   app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
+
+
+⚡ PERFORMANCE:
+--------------
+• Handles 500 records in < 1 second
+• Processes up to 100MB CSV files
+• Responsive UI with instant filtering
+
+
+🆘 TROUBLESHOOTING:
+-------------------
+Problem: "Missing required columns"
+Solution: Check your CSV has all 6 required columns
+
+Problem: "File too large"
+Solution: Increase MAX_CONTENT_LENGTH in app.py
+
+Problem: Can't access http://localhost:5000
+Solution: Check if port 5000 is available or change port in app.py
+
+
+📚 DOCUMENTATION:
+-----------------
+Full documentation available in README.md
+
+
+🎯 TYPICAL WORKFLOW:
+--------------------
+1. Start application (bash start.sh)
+2. Upload CSV file via web interface
+3. Review summary statistics
+4. Browse vulnerabilities by IT Service
+5. Expand services to see details
+6. Export data in your preferred format
+
+
+═══════════════════════════════════════════════════════════════
+
+Ready to start? Run:  bash start.sh
+
+═══════════════════════════════════════════════════════════════
